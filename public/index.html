@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 11 | Gastos recurrentes y periodos de registro -->
+<!-- Proyección Comercial | Versión 12 | Asistente simplificado y saldos por periodo -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -462,4 +462,7 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 </script>
 <script>
 (function(){const form=document.querySelector('#financeEditForm');if(!form||form.querySelector('[name="recurring"]'))return;const actions=form.querySelector('.finance-edit-actions'),label=document.createElement('label');label.className='recurring-option';label.innerHTML='<input type="checkbox" name="recurring" value="si"> Gasto recurrente (se repite cada mes)';form.insertBefore(label,actions);const oldOpen=window.openFinanceEditor;if(typeof oldOpen==='function')window.openFinanceEditor=function(id){window.editingFinanceId=id;oldOpen(id);const item=(db.finances||[]).find(x=>String(x.id)===String(id));form.elements.recurring.checked=String(item?.recurring||'').toLowerCase()==='si'};form.addEventListener('submit',()=>{setTimeout(()=>{const item=(db.finances||[]).find(x=>String(x.id)===String(window.editingFinanceId));if(item){item.recurring=form.elements.recurring.checked?'si':'';localStorage.setItem(KEY,JSON.stringify(db))}},0)})})();
+</script>
+<script>
+(function(){const signals=document.querySelector('#aiSignals');if(signals){const card=signals.closest('.ai-card');if(card)card.remove()}})();
 </script>
