@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 10 | Edición y responsive móvil -->
+<!-- Proyección Comercial | Versión 11 | Gastos recurrentes y periodos de registro -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -438,4 +438,28 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const oldFinanceOpen=window.openFinanceEditor;if(typeof oldFinanceOpen==='function')window.openFinanceEditor=function(id){window.editingFinanceId=id;oldFinanceOpen(id);addFinanceDelete()};addFinanceDelete();cleanFinanceTable();
   const previous=window.render;if(typeof previous==='function')window.render=function(){previous.apply(this,arguments);setTimeout(()=>{addGoalDelete();addFinanceDelete();cleanFinanceTable()},0)};
 })();
+</script>
+<script>
+(function(){
+  const style=document.createElement('style');style.textContent='.recurring-option{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;grid-column:1/-1;font-size:12px;font-weight:700;color:#53617a}.recurring-option input{width:17px;height:17px}.recurring-note{font-size:11px;color:#667085;grid-column:1/-1;margin-top:-6px}';document.head.appendChild(style);
+  function monthKey(value){return String(value||'').slice(0,7)}
+  function addRecurringOption(form){if(!form||form.querySelector('[name="recurring"]'))return;const action=form.querySelector('.form-actions');if(!action)return;const label=document.createElement('label');label.className='recurring-option';label.innerHTML='<input type="checkbox" name="recurring" value="si"> Gasto recurrente (se repite cada mes)';action.parentElement.insertBefore(label,action);const note=document.createElement('div');note.className='recurring-note';note.textContent='Si no se marca, el gasto solo aparecerá en el periodo en que se registre.';action.parentElement.insertBefore(note,action)}
+  function markCreatedAt(form){const field=form?.querySelector('[name="createdAt"]');if(field)field.value=today()}
+  ['#financeForm','#expenseAccountForm'].forEach(selector=>{const form=document.querySelector(selector);if(form){const hidden=document.createElement('input');hidden.type='hidden';hidden.name='createdAt';hidden.value=today();form.appendChild(hidden);addRecurringOption(form);form.addEventListener('submit',()=>markCreatedAt(form))}});
+  function nextMonthDate(value){if(!value)return value;const parts=String(value).split('-').map(Number);if(parts.length!==3||parts.some(Number.isNaN))return value;const d=new Date(parts[0],parts[1]-1,parts[2]);d.setMonth(d.getMonth()+1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+  function createRecurringInstances(){const current=monthKey(today()),items=db.finances||[],roots=items.filter(x=>String(x.recurring||'').toLowerCase()==='si'&&!x.recurrenceRoot);roots.forEach(root=>{let last=root,lastMonth=monthKey(root.createdAt||root.date||today());while(lastMonth<current){const newMonth=new Date(Number(lastMonth.slice(0,4)),Number(lastMonth.slice(5,7)),1);newMonth.setMonth(newMonth.getMonth()+1);lastMonth=newMonth.getFullYear()+'-'+String(newMonth.getMonth()+1).padStart(2,'0');if(items.some(x=>x.recurrenceRoot===root.id&&monthKey(x.createdAt)===lastMonth))break;const copy={...last,id:Date.now()+Math.floor(Math.random()*1000),createdAt:lastMonth+'-01',recurrenceRoot:root.id,date:nextMonthDate(last.date),recurring:'si'};items.push(copy);last=copy}})}
+  function filterByRegistration(){const box=document.querySelector('[data-period-filter="finance"]'),from=box?.querySelector('[data-period-from]')?.value||'',to=box?.querySelector('[data-period-to]')?.value||'',rows=document.querySelector('#financeTable')?.querySelectorAll('tbody tr')||[],items=(db.finances||[]).slice().sort((a,b)=>Number(b.priority)-Number(a.priority));rows.forEach((row,i)=>{const item=items[i],value=item?.createdAt||item?.date||'';row.style.display=(!item||((!from||value>=from)&&(!to||value<=to)))?'':'none'})}
+  createRecurringInstances();
+  const oldRender=window.render;if(typeof oldRender==='function')window.render=function(){oldRender.apply(this,arguments);setTimeout(filterByRegistration,20)};
+  setTimeout(filterByRegistration,20);const table=document.querySelector('#financeTable');if(table)new MutationObserver(()=>setTimeout(filterByRegistration,20)).observe(table,{childList:true,subtree:true});
+})();
+</script>
+<script>
+(function(){try{if(typeof KEY!=='undefined'&&typeof db!=='undefined')localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}})();
+</script>
+<script>
+setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
+</script>
+<script>
+(function(){const form=document.querySelector('#financeEditForm');if(!form||form.querySelector('[name="recurring"]'))return;const actions=form.querySelector('.finance-edit-actions'),label=document.createElement('label');label.className='recurring-option';label.innerHTML='<input type="checkbox" name="recurring" value="si"> Gasto recurrente (se repite cada mes)';form.insertBefore(label,actions);const oldOpen=window.openFinanceEditor;if(typeof oldOpen==='function')window.openFinanceEditor=function(id){window.editingFinanceId=id;oldOpen(id);const item=(db.finances||[]).find(x=>String(x.id)===String(id));form.elements.recurring.checked=String(item?.recurring||'').toLowerCase()==='si'};form.addEventListener('submit',()=>{setTimeout(()=>{const item=(db.finances||[]).find(x=>String(x.id)===String(window.editingFinanceId));if(item){item.recurring=form.elements.recurring.checked?'si':'';localStorage.setItem(KEY,JSON.stringify(db))}},0)})})();
 </script>
