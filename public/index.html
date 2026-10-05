@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 22 | Listas compactas expandibles -->
+<!-- Proyección Comercial | Versión 23 | Revisión por fecha de pago corregida -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -112,6 +112,34 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const form=document.querySelector('#serviceForm');
   if(form)form.addEventListener('submit',function(e){const editingId=form.dataset.editingId;if(!editingId)return;e.preventDefault();const item=db.services.find(x=>String(x.id)===String(editingId));if(item){const data=new FormData(form);item.name=data.get('name');item.price=data.get('price');item.duration=data.get('duration');item.status=data.get('status')}delete form.dataset.editingId;const button=form.querySelector('button');if(button)button.textContent='Agregar servicio';form.reset();save()},true);
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
+})();
+</script>
+
+<!-- V23: la revisión queda como último render para conservar orden y columnas -->
+<script>
+(()=>{
+  const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
+  const getRows=()=>{
+    const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';
+    return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));
+  };
+  const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
+  function render(){
+    const host=document.querySelector('#reviewTable');
+    if(!host)return;
+    const rows=getRows(),key=signature(rows),tableEl=host.querySelector('table'),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),firstDate=host.querySelector('tbody tr td')?.textContent.trim()||'';
+    if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||firstDate===formatDate(rows[0].date)))return;
+    host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));
+    host.dataset.reviewSignature=key;
+  }
+  let queued=false;
+  const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};
+  const bodyObserver=new MutationObserver(schedule);
+  bodyObserver.observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
+  document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
+  render();
+  setTimeout(render,100);
 })();
 </script>
 
@@ -622,5 +650,16 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
   document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
   setTimeout(renderSortedReview,100);
+})();
+</script>
+
+<!-- V23-final: garantiza que otro render no reemplace la revisión ordenada -->
+<script>
+(()=>{
+  const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
+  const getRows=()=>{const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'))};
+  const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
+  function render(){const host=document.querySelector('#reviewTable');if(!host)return;const rows=getRows(),key=signature(rows),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),first=host.querySelector('tbody tr td')?.textContent.trim()||'';if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||first===formatDate(rows[0].date)))return;host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));host.dataset.reviewSignature=key}
+  let queued=false;const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});render();setTimeout(render,100);
 })();
 </script>
