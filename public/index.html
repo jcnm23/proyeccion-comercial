@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 22 | Listas compactas expandibles -->
+<!-- Proyección Comercial | Versión 24 | Datos preservados y revisión corregida -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -115,6 +115,34 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 })();
 </script>
 
+<!-- V23: la revisión queda como último render para conservar orden y columnas -->
+<script>
+(()=>{
+  const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
+  const getRows=()=>{
+    const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';
+    return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));
+  };
+  const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
+  function render(){
+    const host=document.querySelector('#reviewTable');
+    if(!host)return;
+    const rows=getRows(),key=signature(rows),tableEl=host.querySelector('table'),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),firstDate=host.querySelector('tbody tr td')?.textContent.trim()||'';
+    if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||firstDate===formatDate(rows[0].date)))return;
+    host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));
+    host.dataset.reviewSignature=key;
+  }
+  let queued=false;
+  const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};
+  const bodyObserver=new MutationObserver(schedule);
+  bodyObserver.observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
+  document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
+  render();
+  setTimeout(render,100);
+})();
+</script>
+
 <style>
   .collapse-control{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:12px 0 0;padding:9px 14px;border:1px solid #cbd8ff;border-radius:10px;background:#f4f7ff;color:#2854d8;font:inherit;font-weight:700;cursor:pointer;transition:background .2s ease,color .2s ease}
   .collapse-control:hover{background:#e8eeff;color:#173da9}
@@ -225,15 +253,16 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
       const response=await fetch('/api/state');
       if(!response.ok)throw new Error('No se pudo cargar Supabase');
       const nube=await response.json();
-      if(nube&&typeof nube==='object'){
+      const local=localStorage.getItem(KEY),localDb=local?JSON.parse(local):null;
+      const hasRecords=value=>value&&Object.values(value).some(item=>Array.isArray(item)&&item.length>0);
+      if(nube&&typeof nube==='object'&&(hasRecords(nube)||!hasRecords(localDb))){
         db=nube;
         render();
         return;
       }
-      const local=localStorage.getItem(KEY);
-      if(local){
-        db=JSON.parse(local);
-        await window.save();
+      if(localDb){
+        db=localDb;
+        render();
       }
     }catch(error){
       console.error('Sincronización:',error);
@@ -543,7 +572,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 })();
 </script>
 <script>
-(function(){try{if(typeof KEY!=='undefined'&&typeof db!=='undefined')localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}})();
+(function(){try{if(typeof KEY!=='undefined'&&typeof db!=='undefined'){const current=Object.values(db||{}).some(item=>Array.isArray(item)&&item.length>0),stored=localStorage.getItem(KEY);if(current||!stored)localStorage.setItem(KEY,JSON.stringify(db))}}catch(e){}})();
 </script>
 <script>
 setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
@@ -622,5 +651,16 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
   document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
   setTimeout(renderSortedReview,100);
+})();
+</script>
+
+<!-- V23-final: garantiza que otro render no reemplace la revisión ordenada -->
+<script>
+(()=>{
+  const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
+  const getRows=()=>{const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'))};
+  const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
+  function render(){const host=document.querySelector('#reviewTable');if(!host)return;const rows=getRows(),key=signature(rows),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),first=host.querySelector('tbody tr td')?.textContent.trim()||'';if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||first===formatDate(rows[0].date)))return;host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));host.dataset.reviewSignature=key}
+  let queued=false;const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});render();setTimeout(render,100);
 })();
 </script>
