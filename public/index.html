@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 20 | Interpretación de instrucciones para la mezcla -->
+<!-- Proyección Comercial | Versión 22 | Listas compactas expandibles -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -112,6 +112,63 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const form=document.querySelector('#serviceForm');
   if(form)form.addEventListener('submit',function(e){const editingId=form.dataset.editingId;if(!editingId)return;e.preventDefault();const item=db.services.find(x=>String(x.id)===String(editingId));if(item){const data=new FormData(form);item.name=data.get('name');item.price=data.get('price');item.duration=data.get('duration');item.status=data.get('status')}delete form.dataset.editingId;const button=form.querySelector('button');if(button)button.textContent='Agregar servicio';form.reset();save()},true);
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
+})();
+</script>
+
+<style>
+  .collapse-control{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:12px 0 0;padding:9px 14px;border:1px solid #cbd8ff;border-radius:10px;background:#f4f7ff;color:#2854d8;font:inherit;font-weight:700;cursor:pointer;transition:background .2s ease,color .2s ease}
+  .collapse-control:hover{background:#e8eeff;color:#173da9}
+  .collapsed-extra{display:none!important}
+  @media (max-width:640px){.collapse-control{margin-top:10px;font-size:.9rem}}
+</style>
+<script>
+(()=>{
+  const LIMIT=5;
+  const configs=[
+    {root:'#financeTable', rows:'tbody tr', key:'calendar'},
+    {root:'#expenseGoalsDashboard', rows:'.egd-item', key:'expenses'},
+    {root:'#reviewTable', rows:'tbody tr', key:'review'}
+  ];
+  const findButton=(root,key)=>root.querySelector(':scope > .collapse-control[data-collapse="'+key+'"]');
+  function decorate(root,selector,key){
+    if(!root)return;
+    const rows=[...root.querySelectorAll(selector)];
+    let button=findButton(root,key);
+    if(rows.length<=LIMIT){
+      rows.forEach(row=>row.classList.remove('collapsed-extra'));
+      if(button)button.remove();
+      return;
+    }
+    const expanded=root.dataset.collapseState==='expanded';
+    rows.forEach((row,index)=>row.classList.toggle('collapsed-extra',!expanded&&index>=LIMIT));
+    if(!button){
+      button=document.createElement('button');
+      button.type='button';
+      button.className='collapse-control';
+      button.dataset.collapse=key;
+      root.appendChild(button);
+    }
+    const label=expanded?'▲ Ocultar':'▼ Ver todos ('+(rows.length-LIMIT)+' más)';
+    if(button.textContent!==label)button.textContent=label;
+    button.onclick=()=>{
+      root.dataset.collapseState=expanded?'collapsed':'expanded';
+      decorate(root,selector,key);
+    };
+  }
+  function setup(){
+    configs.forEach(config=>decorate(document.querySelector(config.root),config.rows,config.key));
+  }
+  let queued=false;
+  function schedule(){
+    if(queued)return;
+    queued=true;
+    setTimeout(()=>{queued=false;setup()},0);
+  }
+  const observer=new MutationObserver(schedule);
+  observer.observe(document.body,{childList:true,subtree:true});
+  setup();
+  setTimeout(setup,150);
+  setTimeout(setup,600);
 })();
 </script>
 <!-- V15 service editor: final override after catalog initialization -->
@@ -553,5 +610,17 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   function process(text){const q=String(text||'').trim(),l=q.toLowerCase();if(!q)return 'Escribe una instrucción para ajustar la mezcla.';const items=serviceMatches(q),exclude=/no tengo|no está disponible|no esta disponible|quitar|quita|excluir|excluye|no ofrecer|sin ese servicio/.test(l);if(items.length&&exclude){items.forEach(item=>{if(!window.traceExcluded.includes(String(item.id)))window.traceExcluded.push(String(item.id))});if(typeof window.refreshTracePlan==='function')window.refreshTracePlan();return 'Entendido. Excluí temporalmente estos servicios: <b>'+items.map(x=>esc(x.name)).join(', ')+'</b>. Recalculé la mezcla con los servicios restantes; el catálogo no fue eliminado.'}if(items.length){window.tracePreferred=items.map(x=>String(x.id));if(typeof window.refreshTracePlan==='function')window.refreshTracePlan();return 'Entendido. Identifiqué y prioricé en la mezcla: <b>'+items.map(x=>esc(x.name)).join(', ')+'</b>. El plan fue recalculado para alcanzar la meta mensual.'}if(/reinicia|recalcula|actualiza|otra mezcla/.test(l)){if(typeof window.refreshTracePlan==='function')window.refreshTracePlan();return 'Recalculé la mezcla con las metas, gastos y servicios disponibles registrados.'}return 'Puedo ajustar la mezcla. Menciona el servicio o actividad que quieres priorizar, por ejemplo: WhatsApp, campañas Meta Ads, consultoría o automatización.'}
   function renderChat(){const panel=document.querySelector('#dashPanelActions .dash-grid');if(!panel)return;let card=document.querySelector('#traceChatCard');if(card&&card.parentElement!==panel){card.remove();card=null}if(!card){card=document.createElement('div');card.id='traceChatCard';card.className='dash-card trace-chat-card';panel.appendChild(card)}if(card.dataset.ready)return;card.dataset.ready='1';card.innerHTML='<h3>Ajuste de plan de acción</h3><p>Escribe qué cambio necesitas realizar en la estrategia.</p><div id=\"traceChatWindow\" class=\"trace-chat-window\"></div><div class=\"trace-chat-form\"><textarea id=\"traceChatInput\" placeholder=\"Quiero un re-ajuste por...\"></textarea><button type=\"button\" class=\"btn primary\" id=\"traceChatSend\">Modificar</button></div><div class=\"trace-chat-hint\">El ajuste es temporal para este plan; tus servicios del catálogo permanecen intactos.</div>';const win=card.querySelector('#traceChatWindow');addMsg(win,'Platícame qué ajustes necesitas hacer para tu estrategia.','bot');const send=()=>{const input=card.querySelector('#traceChatInput'),q=input.value.trim();if(!q)return;addMsg(win,esc(q),'user');addMsg(win,process(q),'bot');input.value='';};card.querySelector('#traceChatSend').onclick=send;card.querySelector('#traceChatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}})}
   const oldRender=window.render;if(typeof oldRender==='function')window.render=function(){oldRender.apply(this,arguments);setTimeout(renderChat,80)};const oldDash=window.renderInteractiveDashboard;if(typeof oldDash==='function')window.renderInteractiveDashboard=function(){oldDash.apply(this,arguments);setTimeout(renderChat,80)};setTimeout(renderChat,150);
+})();
+</script>
+<!-- V21: Orden de revisión por fecha de pago -->
+<script>
+(function(){
+  const oldReview=window.renderReview;
+  function dateDMY(value){const parts=String(value||'').split('-');return parts.length===3?parts[2]+'/'+parts[1]+'/'+parts[0]:(value||'—')}
+  function renderSortedReview(){const host=document.querySelector('#reviewTable');if(!host)return;const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'',rows=(db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(dateDMY(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'))}
+  window.renderReview=function(){if(typeof oldReview==='function')oldReview.apply(this,arguments);renderSortedReview()};
+  document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
+  document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
+  setTimeout(renderSortedReview,100);
 })();
 </script>
