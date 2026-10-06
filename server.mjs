@@ -149,8 +149,8 @@ app.put("/api/state", async (req, res) => {
         });
 
       if (errorRespaldo) {
-        throw errorRespaldo;
-      }
+  console.error("No se pudo crear el respaldo:", errorRespaldo);
+}
     }
 
     const { error } = await supabase
