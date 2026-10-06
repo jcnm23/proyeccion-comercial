@@ -134,7 +134,7 @@ app.put("/api/state", async (req, res) => {
 
     const estadoActual = registroActual?.data || {};
 
-    if (tieneDatos(estadoActual) && !tieneDatos(nuevoEstado)) {
+    if (!tieneDatos(nuevoEstado)) {
       return res.status(409).json({
         error: "Se rechazó una actualización vacía para proteger tus datos."
       });
