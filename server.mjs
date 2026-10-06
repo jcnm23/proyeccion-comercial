@@ -95,23 +95,82 @@ app.get("/api/state", async (req, res) => {
   }
 });
 
+function tieneDatos(estado) {
+  const campos = [
+    "goals",
+    "sales",
+    "clients",
+    "finances",
+    "services",
+    "accounts",
+    "savings",
+    "accountMoves"
+  ];
+
+  return campos.some(
+    campo => Array.isArray(estado?.[campo]) && estado[campo].length > 0
+  );
+}
+
 app.put("/api/state", async (req, res) => {
   try {
+    const nuevoEstado = req.body;
+
+    if (!nuevoEstado || typeof nuevoEstado !== "object") {
+      return res.status(400).json({
+        error: "El estado recibido no es válido."
+      });
+    }
+
+    const { data: registroActual, error: errorLectura } = await supabase
+      .from("app_state")
+      .select("data")
+      .eq("id", "principal")
+      .maybeSingle();
+
+    if (errorLectura) {
+      throw errorLectura;
+    }
+
+    const estadoActual = registroActual?.data || {};
+
+    if (tieneDatos(estadoActual) && !tieneDatos(nuevoEstado)) {
+      return res.status(409).json({
+        error: "Se rechazó una actualización vacía para proteger tus datos."
+      });
+    }
+
+    if (tieneDatos(estadoActual)) {
+      const { error: errorRespaldo } = await supabase
+        .from("app_state_history")
+        .insert({
+          state_id: "principal",
+          data: estadoActual
+        });
+
+      if (errorRespaldo) {
+        throw errorRespaldo;
+      }
+    }
+
     const { error } = await supabase
       .from("app_state")
       .upsert({
         id: "principal",
-        data: req.body,
+        data: nuevoEstado,
         updated_at: new Date().toISOString()
       });
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     res.json({ ok: true });
   } catch (error) {
     console.error(error);
+
     res.status(500).json({
-      error: "No se pudo guardar la información"
+      error: "No se pudo guardar la información."
     });
   }
 });
