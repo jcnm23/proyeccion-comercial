@@ -114,6 +114,22 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 })();
 </script>
+
+<!-- Cambio solicitado: mostrar "Plazo" en lugar de "Horizonte" sin modificar los datos internos -->
+<script>
+(()=>{
+  const cambiarTexto=()=>{
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    const nodos=[];
+    while(walker.nextNode())nodos.push(walker.currentNode);
+    nodos.forEach(nodo=>{
+      nodo.nodeValue=nodo.nodeValue.replace(/Horizonte/g,'Plazo').replace(/horizonte/g,'plazo');
+    });
+  };
+  cambiarTexto();
+  new MutationObserver(cambiarTexto).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
 <script>
 (function(){
   const selectors = [
