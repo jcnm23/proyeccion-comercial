@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 24 | Datos preservados y revisión corregida -->
+<!-- Proyección Comercial | Versión 25 | Ventas cobradas, por cobrar y edición -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -112,6 +112,70 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const form=document.querySelector('#serviceForm');
   if(form)form.addEventListener('submit',function(e){const editingId=form.dataset.editingId;if(!editingId)return;e.preventDefault();const item=db.services.find(x=>String(x.id)===String(editingId));if(item){const data=new FormData(form);item.name=data.get('name');item.price=data.get('price');item.duration=data.get('duration');item.status=data.get('status')}delete form.dataset.editingId;const button=form.querySelector('button');if(button)button.textContent='Agregar servicio';form.reset();save()},true);
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
+})();
+</script>
+
+<!-- Corrección de ventas: neto cobrado, filtro por estado, colores y edición -->
+<script>
+(()=>{
+  const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const statusOf=s=>normalize(s.status);
+  const isQuote=s=>['cotizacion','cotizacion enviada'].includes(normalize(s.stage||''));
+  const topKpis=()=>document.querySelector('#ventas > .grid.two #salesKpis');
+
+  function renderSalesIndicators(){
+    const host=topKpis();
+    if(!host)return;
+    const sales=db.sales||[],collected=sales.filter(s=>statusOf(s)==='cobrada'),pending=sales.filter(s=>statusOf(s)==='por cobrar'),quotes=sales.filter(isQuote),closed=sales.filter(s=>statusOf(s)==='cobrada'||normalize(s.stage)==='cerrada');
+    const quoteCount=quotes.length,closedCount=closed.length,conversion=quoteCount?closedCount/quoteCount*100:0;
+    host.innerHTML='<div class="sales-kpi highlight"><span>Ventas netas</span><strong>'+money(sum(collected,'amount'))+'</strong></div><div class="sales-kpi sales-kpi-pending"><span>Ventas por cobrar</span><strong>'+money(sum(pending,'amount'))+'</strong></div><div class="sales-kpi"><span>Cotizaciones enviadas</span><strong>'+quoteCount+'</strong></div><div class="sales-kpi"><span>Ventas cerradas</span><strong>'+closedCount+'</strong></div><div class="sales-kpi"><span>Tasa de conversión</span><strong>'+conversion.toFixed(1)+'%</strong></div>';
+  }
+
+  function statusClass(s){
+    const value=statusOf(s);
+    return value==='cobrada'?'sales-status-cobrada':value==='por cobrar'?'sales-status-pending':value==='parcial'?'sales-status-partial':isQuote(s)?'sales-status-quote':'sales-status-other';
+  }
+  function statusText(s){return s.status|| (isQuote(s)?'Cotización':'—')}
+
+  function clientOptions(current){
+    const names=[...(db.clients||[]).map(c=>String(c.name||'')),String(current||'')].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+    return '<option value="">Selecciona un cliente</option>'+names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  }
+  function serviceOptions(current){
+    const names=[...(db.services||[]).map(s=>String(s.name||'')),String(current||'')].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i);
+    return names.map(n=>'<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  }
+
+  function openSaleEditor(index){
+    const item=(db.sales||[])[index];
+    if(!item)return;
+    document.querySelector('#saleEditModal')?.remove();
+    const modal=document.createElement('div');modal.id='saleEditModal';modal.className='sale-edit-modal';
+    modal.innerHTML='<div class="sale-edit-box"><h2>Editar venta</h2><p>Actualiza la fecha, cliente, servicio, monto o estado. El registro no se elimina.</p><form class="sale-edit-form"><label>Fecha<input name="date" type="date" required></label><label>Cliente<select name="client" required>'+clientOptions(item.client)+'</select></label><label>Servicio<select name="service" required>'+serviceOptions(item.service)+'</select></label><label>Monto antes de IVA<input name="amount" type="number" min="0" step="0.01" required></label><label>Estado<select name="status"><option>Cobrada</option><option>Por cobrar</option><option>Parcial</option></select></label><div class="sale-edit-actions"><button type="button" class="sale-edit-cancel">Cancelar</button><button type="submit" class="btn primary">Guardar cambios</button></div></form></div>';
+    document.body.appendChild(modal);
+    const form=modal.querySelector('form');form.elements.date.value=item.date||'';form.elements.client.value=item.client||'';form.elements.service.value=item.service||'';form.elements.amount.value=Number(item.amount)||0;form.elements.status.value=item.status||'Cobrada';
+    modal.querySelector('.sale-edit-cancel').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};
+    form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());Object.assign(item,{date:data.date,client:data.client,service:data.service,amount:data.amount,status:data.status});modal.remove();await save();toast('Venta actualizada correctamente')};
+  }
+
+  function renderSalesLedger(){
+    const host=document.querySelector('#salesTable');if(!host)return;
+    const card=host.closest('.card');if(!card)return;
+    let filter=card.querySelector('.sales-status-filter');
+    if(!filter){filter=document.createElement('div');filter.className='sales-status-filter';filter.innerHTML='<button type="button" data-sales-filter="all">Todos</button><button type="button" data-sales-filter="cobrada">Cobrada</button><button type="button" data-sales-filter="por cobrar">Por cobrar</button><button type="button" data-sales-filter="cotizacion">Cotización</button><button type="button" data-sales-filter="parcial">Parcial</button>';const title=card.querySelector('.section-title');title?.insertAdjacentElement('afterend',filter);filter.querySelectorAll('button').forEach(b=>b.onclick=()=>{card.dataset.salesFilter=b.dataset.salesFilter;renderSalesLedger()})}
+    const active=card.dataset.salesFilter||'all',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';
+    filter.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.salesFilter===active));
+    const rows=(db.sales||[]).map((s,i)=>({s,i})).filter(({s})=>{const match=active==='all'||(active==='cotizacion'?isQuote(s):statusOf(s)===active);return match&&(!from||String(s.date||'')>=from)&&(!to||String(s.date||'')<=to)}).sort((a,b)=>String(b.s.date||'').localeCompare(String(a.s.date||'')));
+    host.innerHTML='<table><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Neto</th><th>IVA</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+(rows.length?rows.map(({s,i})=>'<tr><td>'+esc(s.date||'—')+'</td><td>'+esc(s.client||'—')+'</td><td>'+esc(s.service||'—')+'</td><td>'+money(s.amount)+'</td><td>'+money(Number(s.amount)*.16)+'</td><td><span class="sales-status '+statusClass(s)+'">'+esc(statusText(s))+'</span></td><td><button type="button" class="sales-edit-btn" data-sale-index="'+i+'">Editar</button></td></tr>').join(''):'<tr><td colspan="7" class="empty">No hay ventas en este filtro.</td></tr>')+'</tbody></table>';
+    host.querySelectorAll('[data-sale-index]').forEach(b=>b.onclick=()=>openSaleEditor(Number(b.dataset.saleIndex)));
+  }
+
+  const style=document.createElement('style');style.textContent='.sales-kpi-pending{background:#fff4df;border-color:#f1d59a}.sales-status-filter{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 14px}.sales-status-filter button{padding:8px 12px;border-radius:9px;border:1px solid #cbd6eb;background:#fff;color:#3157d6;font-weight:800;cursor:pointer}.sales-status-filter button.active{background:#3157d6;color:#fff}.sales-status{display:inline-block;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:800}.sales-status-cobrada{background:#e0f7eb;color:#137449}.sales-status-pending{background:#fff0d4;color:#9b5a00}.sales-status-partial{background:#eee8ff;color:#6741b8}.sales-status-quote{background:#ffe1df;color:#b33232}.sales-status-other{background:#eef2ff;color:#3157d6}.sales-edit-btn{border:1px solid #cbd6eb;background:#fff;color:#3157d6;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer}.sales-edit-btn:hover{background:#eef3ff}.sale-edit-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.sale-edit-box{width:min(560px,100%);background:#fff;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.sale-edit-box h2{margin:0 0 6px}.sale-edit-box p{margin:0 0 16px;color:#667085;font-size:12px}.sale-edit-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.sale-edit-form label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#53617a}.sale-edit-form input,.sale-edit-form select{min-height:38px;border:1px solid #d8dfec;border-radius:9px;padding:8px;background:#fff}.sale-edit-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:6px}.sale-edit-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.sale-edit-cancel{background:#eef2f8;color:#3d4b67}@media(max-width:600px){.sale-edit-form{grid-template-columns:1fr}}';document.head.appendChild(style);
+  function renderCollectedChart(){const chart=document.querySelector('#salesChart');if(!chart||typeof salesBucket!=='function')return;const from=document.querySelector('#salesFrom')?.value||'',to=document.querySelector('#salesTo')?.value||'',gran=document.querySelector('#salesGranularity')?.value||'day',rows=(db.sales||[]).filter(s=>statusOf(s)==='cobrada'&&(!from||s.date>=from)&&(!to||s.date<=to)),buckets={};rows.forEach(s=>{const key=salesBucket(s.date,gran);if(!buckets[key])buckets[key]={key,total:0};buckets[key].total+=Number(s.amount)||0});const values=Object.values(buckets).sort((a,b)=>a.key.localeCompare(b.key)).slice(-12),max=Math.max(1,...values.map(v=>v.total));chart.innerHTML=values.length?values.map(v=>'<div class="day"><i style="height:'+Math.max(5,v.total/max*125)+'px"></i><span>'+esc(v.key)+'</span><small>'+money(v.total)+'</small></div>').join(''):'<div class="small">Registra ventas cobradas para visualizar el gráfico.</div>'}
+  const oldRender=window.render;if(typeof oldRender==='function')window.render=function(){oldRender.apply(this,arguments);setTimeout(()=>{renderSalesIndicators();renderSalesLedger()},0)};
+  document.addEventListener('change',e=>{if(e.target.matches('#reviewFrom,#reviewTo'))setTimeout(renderSalesLedger,0)});
+  document.addEventListener('change',e=>{if(e.target.matches('#salesFrom,#salesTo,#salesGranularity'))setTimeout(renderCollectedChart,0)});
+  renderSalesIndicators();renderSalesLedger();setTimeout(()=>{renderSalesIndicators();renderSalesLedger();renderCollectedChart()},200);
 })();
 </script>
 
