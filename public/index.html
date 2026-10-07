@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 33 | Corrección del formulario real de salidas -->
+<!-- Proyección Comercial | Versión 34 | Edición y eliminación de clientes -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -936,5 +936,30 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   }
   const style=document.createElement('style');style.textContent='.expense-other-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.expense-other-box{width:min(460px,100%);background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.expense-other-box h2{margin:0 0 6px}.expense-other-box p{margin:0 0 14px;color:#667085;font-size:12px}.expense-other-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.expense-other-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.expense-other-cancel{background:#eef2f8;color:#3d4b67}';document.head.appendChild(style);
   const run=()=>{apply(document.querySelector('#expenseAccountForm'));apply(document.querySelector('#financeExpenseFormEl'))};run();setTimeout(run,100);setTimeout(run,500);new MutationObserver(run).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
+<!-- V34-final: acciones del directorio de clientes -->
+<script>
+(()=>{
+  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function clientRows(){
+    let rows=(db.clients||[]).map((client,index)=>{
+      return '<tr><td><b>'+safe(client.name)+'</b><br><span class="small">'+safe(client.role||'')+'</span></td><td>'+safe(client.company||'—')+'</td><td>'+safe(client.email||client.phone||'—')+'</td><td>'+money(client.amount)+'</td><td><button type="button" class="client-edit-btn" data-client-index="'+index+'">Editar</button></td></tr>';
+    }).join('');
+    if(!rows)rows='<tr><td colspan="5" class="empty">No hay clientes registrados.</td></tr>';
+    return '<table><thead><tr><th>Cliente</th><th>Compañía</th><th>Contacto</th><th>Venta</th><th>Acciones</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  }
+  function renderClients(){const host=document.querySelector('#clientsTable');if(host)host.innerHTML=clientRows();document.querySelectorAll('[data-client-index]').forEach(button=>button.onclick=()=>openEditor(Number(button.dataset.clientIndex)))}
+  function openEditor(index){
+    const client=(db.clients||[])[index];if(!client)return;
+    const modal=document.createElement('div');modal.id='clientEditModal';modal.className='client-edit-modal';
+    modal.innerHTML=`<div class="client-edit-box"><h2>Editar cliente</h2><p>Actualiza los datos comerciales o elimina el registro.</p><form class="client-edit-form"><label>Nombre<input name="name" required></label><label>Compañía<input name="company"></label><label>Monto de venta<input name="amount" type="number" min="0" step="0.01"></label><div class="client-edit-actions"><button type="button" class="client-delete-btn">Eliminar cliente</button><span></span><button type="button" class="client-cancel-btn">Cancelar</button><button type="submit" class="btn primary">Guardar cambios</button></div></form></div>`;
+    document.body.appendChild(modal);const form=modal.querySelector('form');form.elements.name.value=client.name||'';form.elements.company.value=client.company||'';form.elements.amount.value=Number(client.amount)||0;const close=()=>modal.remove();modal.querySelector('.client-cancel-btn').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};
+    modal.querySelector('.client-delete-btn').onclick=async()=>{if(!confirm('¿Deseas eliminar este cliente? Sus ventas históricas se conservarán.'))return;db.clients.splice(index,1);close();await save();toast('Cliente eliminado correctamente')};
+    form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries()),oldName=client.name;Object.assign(client,{name:data.name,company:data.company,amount:data.amount});(db.sales||[]).forEach(s=>{if(s.client===oldName)s.client=client.name});close();await save();toast('Cliente actualizado correctamente')};
+  }
+  const style=document.createElement('style');style.textContent='.client-edit-btn{border:1px solid #cbd6eb;background:#fff;color:#3157d6;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer}.client-edit-btn:hover{background:#eef3ff}.client-edit-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.client-edit-box{width:min(560px,100%);background:#fff;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.client-edit-box h2{margin:0 0 6px}.client-edit-box p{margin:0 0 16px;color:#667085;font-size:12px}.client-edit-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.client-edit-form label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#53617a}.client-edit-form input{min-height:38px;border:1px solid #d8dfec;border-radius:9px;padding:8px;background:#fff}.client-edit-actions{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;margin-top:6px}.client-edit-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.client-delete-btn{background:#fff0ef;color:#b33232;border:1px solid #ffd4cf!important}.client-cancel-btn{background:#eef2f8;color:#3d4b67}@media(max-width:600px){.client-edit-form{grid-template-columns:1fr}.client-edit-actions{grid-template-columns:1fr 1fr}.client-delete-btn{grid-column:1/-1}}';document.head.appendChild(style);
+  const previous=window.renderTables;if(typeof previous==='function')window.renderTables=function(){previous.apply(this,arguments);renderClients()};renderClients();
 })();
 </script>
