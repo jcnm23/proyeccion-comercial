@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 28 | Separación de indicadores comerciales -->
+<!-- Proyección Comercial | Versión 29 | Corrección final de indicadores comerciales -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -827,5 +827,38 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
   function render(){const host=document.querySelector('#reviewTable');if(!host)return;const rows=getRows(),key=signature(rows),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),first=host.querySelector('tbody tr td')?.textContent.trim()||'';if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||first===formatDate(rows[0].date)))return;host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));host.dataset.reviewSignature=key}
   let queued=false;const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});render();setTimeout(render,100);
+})();
+</script>
+
+<!-- V29-final: protege los indicadores superiores contra renders posteriores -->
+<script>
+(()=>{
+  const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const moneyValue=rows=>rows.reduce((total,row)=>total+(Number(row.amount)||0),0);
+  const statusOf=row=>normalize(row.status);
+  const isQuoted=row=>['cotizacion','cotizacion enviada'].includes(normalize(row.stage||''));
+  const renderTopIndicators=()=>{
+    const host=document.querySelector('#ventas > .grid.two #salesKpis');
+    if(!host)return;
+    const sales=typeof db!=='undefined'&&Array.isArray(db.sales)?db.sales:[];
+    const collected=sales.filter(row=>statusOf(row)==='cobrada');
+    const pending=sales.filter(row=>statusOf(row)==='por cobrar');
+    const quoted=sales.filter(isQuoted);
+    const signature=[moneyValue(collected),moneyValue(pending),moneyValue(quoted)].join('|');
+    if(host.dataset.v29Signature===signature&&host.querySelectorAll('.sales-kpi').length===3)return;
+    host.dataset.v29Signature=signature;
+    host.style.display='grid';
+    host.style.gap='10px';
+    host.innerHTML='<div class="sales-kpi highlight"><span>Ventas netas</span><strong>'+money(moneyValue(collected))+'</strong></div><div class="sales-kpi sales-kpi-pending"><span>Ventas por cobrar</span><strong>'+money(moneyValue(pending))+'</strong></div><div class="sales-kpi sales-kpi-quoted"><span>Saldo de ventas cotizadas</span><strong>'+money(moneyValue(quoted))+'</strong></div>';
+  };
+  let queued=false;
+  const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;renderTopIndicators()},0)};
+  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});
+  document.addEventListener('change',schedule);
+  document.addEventListener('input',schedule);
+  renderTopIndicators();
+  setTimeout(renderTopIndicators,100);
+  setTimeout(renderTopIndicators,500);
+  setTimeout(renderTopIndicators,1500);
 })();
 </script>
