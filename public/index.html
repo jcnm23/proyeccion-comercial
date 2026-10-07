@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 29 | Corrección final de indicadores comerciales -->
+<!-- Proyección Comercial | Versión 31 | Estado de cotización en ventas -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -57,7 +57,7 @@ function expenseCategory(concept){const n=String(concept||'').normalize('NFD').r
 function setupExpenseDashboard(){const tools=$('#accountTools');if(!tools||$('#expenseDashboard'))return;const statement=tools.lastElementChild;statement.insertAdjacentHTML('beforebegin','<div id="expenseDashboard" class="card expense-analysis"><div class="section-title"><div><h2>Dashboard de fugas de ingreso</h2><p>Identifica dónde se concentra el gasto y decide qué ajustar primero.</p></div><span class="tag red">Decisión</span></div><div class="expense-grid"><div><div id="expenseRanking" class="expense-rank"></div></div><div><div id="leakInsight"></div><div id="expenseRecommendation" class="recommend-box"></div></div></div></div>')}
 function renderExpenseDashboard(){const host=$('#expenseDashboard');if(!host)return;const month=$('#statementMonth')?.value||new Date().toISOString().slice(0,7),from=$('#statementFrom')?.value||month+'-01',to=$('#statementTo')?.value||month+'-'+new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate(),out=db.accountMoves.filter(m=>m.kind==='salida'&&m.date>=from&&m.date<=to),groups={};out.forEach(m=>{const [name,icon]=expenseCategory(m.concept);if(!groups[name])groups[name]={name,icon,total:0,count:0};groups[name].total+=Number(m.amount)||0;groups[name].count++});const rows=Object.values(groups).sort((a,b)=>b.total-a.total),total=sum(out,'amount'),top=rows[0],topPct=top?top.total/Math.max(1,total)*100:0;if(!rows.length){$('#expenseRanking').innerHTML='<div class="expense-empty">Registra salidas/egresos para identificar tus principales fugas de ingreso.</div>';$('#leakInsight').innerHTML='<div class="leak-card"><strong>Sin datos todavía</strong><p>Cuando registres egresos por concepto aparecerá el ranking de categorías.</p></div>';$('#expenseRecommendation').textContent='Consejo: captura cada salida con un concepto específico para obtener recomendaciones útiles.';return}$('#expenseRanking').innerHTML=rows.slice(0,8).map(r=>{const pct=r.total/Math.max(1,total)*100;return '<div class="expense-row"><div class="expense-icon">'+r.icon+'</div><div><div class="expense-name">'+esc(r.name)+'</div><div class="expense-meta">'+r.count+' movimiento'+(r.count===1?'':'s')+' · '+pct.toFixed(1)+'% del total</div><div class="expense-track"><i style="width:'+pct+'%"></i></div></div><div class="expense-amount">'+money(r.total)+'</div></div>'}).join('');$('#leakInsight').innerHTML='<div class="leak-card"><strong>Fuga principal: '+esc(top.name)+'</strong><p>Representa el '+topPct.toFixed(1)+'% de tus egresos del periodo, con '+money(top.total)+'. Revisa si es esencial, reducible o puede sustituirse.</p></div>';const advice=topPct>=35?'Prioridad recomendada: establece un límite para '+top.name.toLowerCase()+' y revisa cada semana el acumulado.':topPct>=20?'Hay concentración moderada en '+top.name.toLowerCase()+'. Compara alternativas antes de realizar nuevos pagos.':'Tus egresos están relativamente distribuidos. Mantén el registro diario y conserva una reserva para imprevistos.';$('#expenseRecommendation').innerHTML='<b>Recomendación para decidir mejor</b><br>'+advice+'<br><br><b>Total egresado:</b> '+money(total)}
 reorderAccountCards();setupExpenseDashboard();const renderWithExpense=render;render=function(){renderWithExpense();renderExpenseDashboard()};render();
-function setupSalesLink(){const original=$('#saleForm');if(!original||original.dataset.linked)return;const action=original.querySelector('.form-actions');action.insertAdjacentHTML('beforebegin','<label>Cuenta destino<select name="account" id="saleAccount"></select></label><label>Etapa comercial<select name="stage"><option value="prospecto">Prospecto</option><option value="cotizacion">Cotización enviada</option><option value="cerrada">Cerrada</option></select></label>');const form=original.cloneNode(true);form.dataset.linked='1';original.replaceWith(form);form.addEventListener('submit',e=>{e.preventDefault();const o=Object.fromEntries(new FormData(e.target).entries());o.id=Date.now();db.sales.push(o);if(!db.accountMoves)db.accountMoves=[];const a=db.accounts?.find(x=>x.name===o.account);if(a&&o.status==='Cobrada'){const amount=Number(o.amount)||0;a.balance=Number(a.balance)+amount;db.accountMoves.push({id:Date.now()+1,account:a.name,kind:'entrada',amount,date:o.date,concept:'Venta: '+(o.client||'Cliente')+' · '+(o.service||'Servicio'),source:'sale',sourceId:o.id})}e.target.reset();e.target.querySelector('[name=date]').value=today();save()});document.addEventListener('input',e=>{if(['salesFrom','salesTo','salesGranularity'].includes(e.target.id))renderSalesDashboard()})}
+function setupSalesLink(){const original=$('#saleForm');if(!original||original.dataset.linked)return;const action=original.querySelector('.form-actions');action.insertAdjacentHTML('beforebegin','<label>Cuenta destino<select name="account" id="saleAccount"></select></label>');const form=original.cloneNode(true);form.dataset.linked='1';original.replaceWith(form);form.addEventListener('submit',e=>{e.preventDefault();const o=Object.fromEntries(new FormData(e.target).entries());o.id=Date.now();if(o.status==='Cotización enviada')o.stage='cotizacion';db.sales.push(o);if(!db.accountMoves)db.accountMoves=[];const a=db.accounts?.find(x=>x.name===o.account);if(a&&o.status==='Cobrada'){const amount=Number(o.amount)||0;a.balance=Number(a.balance)+amount;db.accountMoves.push({id:Date.now()+1,account:a.name,kind:'entrada',amount,date:o.date,concept:'Venta: '+(o.client||'Cliente')+' · '+(o.service||'Servicio'),source:'sale',sourceId:o.id})}e.target.reset();e.target.querySelector('[name=date]').value=today();save()});document.addEventListener('input',e=>{if(['salesFrom','salesTo','salesGranularity'].includes(e.target.id))renderSalesDashboard()})}
 function fillSalesAccount(){const s=$('#saleAccount');if(!s)return;const current=s.value;const accounts=db.accounts||[];s.innerHTML=(accounts.length?accounts.map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join(''):'<option value="">Sin cuenta disponible</option>');if(accounts.some(a=>a.name===current))s.value=current}
 function salesBucket(date,gran){if(gran==='month')return date.slice(0,7);if(gran==='week'){const d=new Date(date+'T12:00:00'),day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.toISOString().slice(0,10)}return date}
 function setupSalesDashboard(){if($('#salesAnalysis'))return;const tableCard=$('#salesTable')?.closest('.card');if(!tableCard)return;tableCard.insertAdjacentHTML('beforebegin','<div id="salesAnalysis" class="card sales-analysis"><div class="section-title"><div><h2>Dashboard comercial</h2><p>Analiza ventas, cotizaciones y cierres por día, semana o mes.</p></div><div class="sales-filter"><input id="salesFrom" type="date"><input id="salesTo" type="date"><select id="salesGranularity"><option value="day">Por día</option><option value="week">Por semana</option><option value="month">Por mes</option></select></div></div><div id="salesKpis" class="sales-kpis"></div><div class="grid two"><div><h3 style="font-size:14px">Ventas netas por periodo</h3><div id="salesChart" class="sales-chart"></div></div><div id="salesInsight"></div></div></div>')}
@@ -120,7 +120,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 (()=>{
   const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const statusOf=s=>normalize(s.status);
-  const isQuote=s=>['cotizacion','cotizacion enviada'].includes(normalize(s.stage||''));
+  const isQuote=s=>['cotizacion','cotizacion enviada'].includes(normalize(s.stage||''))||normalize(s.status)==='cotizacion enviada';
   const topKpis=()=>document.querySelector('#ventas > .grid.two #salesKpis');
 
   function renderSalesIndicators(){
@@ -163,7 +163,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
     document.body.appendChild(modal);
     const form=modal.querySelector('form');form.elements.date.value=item.date||'';form.elements.client.value=item.client||'';form.elements.service.value=item.service||'';form.elements.amount.value=Number(item.amount)||0;form.elements.status.value=item.status||'Cobrada';
     modal.querySelector('.sale-edit-cancel').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};
-    form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());Object.assign(item,{date:data.date,client:data.client,service:data.service,amount:data.amount,status:data.status});modal.remove();await save();toast('Venta actualizada correctamente')};
+    form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());Object.assign(item,{date:data.date,client:data.client,service:data.service,amount:data.amount,status:data.status,stage:data.status==='Cotización enviada'?'cotizacion':''});modal.remove();await save();toast('Venta actualizada correctamente')};
   }
 
   function renderSalesLedger(){
@@ -397,16 +397,25 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 </script>
 <script>
 (function(){
+  window.cloudStateReady=false;
+  window.cloudSyncAvailable=false;
   const originalSave=window.save;
   window.save=async function(){
+    if(!window.cloudStateReady){
+      localStorage.setItem(KEY,JSON.stringify(db));
+      render();
+      return;
+    }
     try{
       const response=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(db)});
       if(!response.ok)throw new Error('No se pudo guardar en la nube');
+      window.cloudSyncAvailable=true;
       localStorage.setItem(KEY,JSON.stringify(db));
       render();
       toast('Información sincronizada correctamente');
     }catch(error){
       console.error(error);
+      window.cloudSyncAvailable=false;
       localStorage.setItem(KEY,JSON.stringify(db));
       render();
       toast('Guardado localmente; revisa la conexión');
@@ -417,6 +426,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
     try{
       const response=await fetch('/api/state');
       if(!response.ok)throw new Error('No se pudo cargar Supabase');
+      window.cloudSyncAvailable=true;
       const nube=await response.json();
       const local=localStorage.getItem(KEY),localDb=local?JSON.parse(local):null;
       const hasRecords=value=>value&&Object.values(value).some(item=>Array.isArray(item)&&item.length>0);
@@ -431,7 +441,10 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
       }
     }catch(error){
       console.error('Sincronización:',error);
+      window.cloudSyncAvailable=false;
       render();
+    }finally{
+      window.cloudStateReady=true;
     }
   }
 
@@ -765,7 +778,7 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   ];
   function setupServiceUi(){const nav=document.querySelector('.nav button[data-section="servicios"]'),section=document.querySelector('#servicios'),form=document.querySelector('#serviceForm');if(nav)nav.innerHTML='<span>◆</span>Servicios de JCN y CD';if(section){section.querySelectorAll('h1').forEach(h=>h.textContent='Servicios de JCN y CD');const heads=section.querySelectorAll('h2');if(heads[0])heads[0].textContent='Catálogo de servicios JCN y CD';if(heads[1])heads[1].textContent='Servicios y precios'}if(form&&!form.dataset.v14){form.innerHTML='<label>Marca<select name="brand"><option>JCN</option><option>Concepto Digital</option></select></label><label>Nombre del servicio<input name="name" required placeholder="Ej. WhatsApp IA"></label><label>Mensualidad u honorario<input name="price" type="number" min="0" step="0.01" required placeholder="0"></label><div class="form-actions" style="grid-column:1/-1"><button class="btn primary">Agregar servicio</button></div>';form.dataset.v14='1'}}
   function renderServiceCatalog(){if(typeof window.renderServiceCatalog==='function')return window.renderServiceCatalog();const host=document.querySelector('#servicesTable');if(!host)return;host.innerHTML=table(['Marca','Nombre del servicio','Mensualidad u honorario'],(db.services||[]).map(s=>'<tr><td><span class="tag">'+esc(s.brand||'—')+'</span></td><td><b>'+esc(s.name||'—')+'</b></td><td>'+money(s.price)+'</td></tr>'))}
-  async function migrate(){if(localStorage.getItem('servicesCatalogVersion')==='14')return;db.services=catalog.map((x,i)=>({...x,id:Date.now()+i,status:'Activo'}));localStorage.setItem('servicesCatalogVersion','14');if(typeof window.save==='function')await window.save();renderServiceCatalog()}
+  async function migrate(){if(localStorage.getItem('servicesCatalogVersion')==='14')return;if(!window.cloudStateReady)return;db.services=catalog.map((x,i)=>({...x,id:Date.now()+i,status:'Activo'}));localStorage.setItem('servicesCatalogVersion','14');if(typeof window.save==='function')await window.save();renderServiceCatalog()}
   setupServiceUi();const previous=window.render;if(typeof previous==='function')window.render=function(){previous.apply(this,arguments);setTimeout(()=>{setupServiceUi();renderServiceCatalog()},0)};renderServiceCatalog();let tries=0;const timer=setInterval(()=>{tries++;setupServiceUi();if(localStorage.getItem('servicesCatalogVersion')==='14'||tries>12){clearInterval(timer);return}migrate()},300);
 })();
 </script>
@@ -836,7 +849,7 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const moneyValue=rows=>rows.reduce((total,row)=>total+(Number(row.amount)||0),0);
   const statusOf=row=>normalize(row.status);
-  const isQuoted=row=>['cotizacion','cotizacion enviada'].includes(normalize(row.stage||''));
+  const isQuoted=row=>['cotizacion','cotizacion enviada'].includes(normalize(row.stage||''))||normalize(row.status)==='cotizacion enviada';
   const renderTopIndicators=()=>{
     const host=document.querySelector('#ventas > .grid.two #salesKpis');
     if(!host)return;
@@ -860,5 +873,21 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   setTimeout(renderTopIndicators,100);
   setTimeout(renderTopIndicators,500);
   setTimeout(renderTopIndicators,1500);
+})();
+</script>
+
+<!-- V31-final: el estado de cotización sustituye a la etapa comercial -->
+<script>
+(()=>{
+  function applySaleFields(){
+    const form=document.querySelector('#saleForm');
+    const stage=form?.querySelector('select[name="stage"]');
+    if(stage)stage.closest('label')?.remove();
+    document.querySelectorAll('#saleForm select[name="status"],#saleEditModal select[name="status"]').forEach(select=>{
+      if(![...select.options].some(option=>option.value==='Cotización enviada'))select.appendChild(new Option('Cotización enviada','Cotización enviada'));
+    });
+  }
+  new MutationObserver(applySaleFields).observe(document.body,{childList:true,subtree:true});
+  applySaleFields();
 })();
 </script>
