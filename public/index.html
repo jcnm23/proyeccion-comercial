@@ -114,6 +114,42 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 })();
 </script>
+<script>
+(function(){
+  const selectors = [
+    '#financeForm select[name="type"]',
+    '#financeExpenseFormEl select[name="type"]',
+    '#expenseAccountForm select[name="type"]',
+    '#financeEditForm select[name="type"]',
+    '#reviewType'
+  ].join(',');
+
+  function addNomina(){
+    document.querySelectorAll(selectors).forEach(select=>{
+      const ahorro=[...select.options].find(option=>option.value==='ahorro');
+      if(!ahorro || [...select.options].some(option=>option.value==='nomina'))return;
+      ahorro.insertAdjacentElement('afterend',new Option('Nómina','nomina'));
+    });
+  }
+
+  addNomina();
+  new MutationObserver(addNomina).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+<script>
+(function(){
+  function removeExpensePeriod(){
+    const form=document.querySelector('#financeExpenseFormEl');
+    const field=form?.querySelector('select[name="period"]');
+    const label=field?.closest('label');
+    if(label)label.remove();
+  }
+
+  removeExpensePeriod();
+  new MutationObserver(removeExpensePeriod)
+    .observe(document.body,{childList:true,subtree:true});
+})();
+</script>
 
 <!-- V23: la revisión queda como último render para conservar orden y columnas -->
 <script>
