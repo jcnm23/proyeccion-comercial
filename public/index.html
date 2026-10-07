@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 31 | Estado de cotización en ventas -->
+<!-- Proyección Comercial | Versión 33 | Corrección del formulario real de salidas -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -889,5 +889,52 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   }
   new MutationObserver(applySaleFields).observe(document.body,{childList:true,subtree:true});
   applySaleFields();
+})();
+</script>
+
+<!-- V32-final: catálogo de conceptos para salidas y egresos -->
+<script>
+(()=>{
+  const common=['Comida','Cine','Transporte','Viaje','Helados','Pizza','Despensa','Renta','Gasolina','Servicios','Farmacia','Salud','Educación','Nómina','Otro'];
+  const escLocal=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const concepts=()=>[...(db.finances||[]).map(item=>String(item.concept||'').trim()),...(db.expenseConcepts||[]),...common].filter((value,index,list)=>value&&list.indexOf(value)===index);
+  function openOther(select){
+    document.querySelector('#expenseOtherModal')?.remove();
+    const modal=document.createElement('div');modal.id='expenseOtherModal';modal.className='expense-other-modal';
+    modal.innerHTML='<div class="expense-other-box"><h2>Agregar concepto</h2><p>Escribe el gasto que no aparece en la lista.</p><input id="expenseOtherInput" placeholder="Ej. Reparación del auto" required><div class="expense-other-actions"><button type="button" class="expense-other-cancel">Cancelar</button><button type="button" class="btn primary expense-other-save">Agregar concepto</button></div></div>';
+    document.body.appendChild(modal);const input=modal.querySelector('#expenseOtherInput');input.focus();
+    const close=()=>modal.remove();modal.querySelector('.expense-other-cancel').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};
+    modal.querySelector('.expense-other-save').onclick=()=>{const value=input.value.trim();if(!value){input.focus();return}db.expenseConcepts=db.expenseConcepts||[];if(!db.expenseConcepts.includes(value))db.expenseConcepts.push(value);let option=[...select.options].find(item=>item.value===value);if(!option){option=new Option(value,value);select.insertBefore(option,select.querySelector('option[value="Otro"]'))}select.value=value;close();if(typeof save==='function')save()};
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();modal.querySelector('.expense-other-save').click()}});
+  }
+  function apply(){
+    const form=document.querySelector('#expenseAccountForm');if(!form||form.dataset.v32)return;
+    const input=form.querySelector('input[name="concept"]');if(!input)return;
+    const label=input.closest('label');const select=document.createElement('select');select.name='concept';select.required=true;select.innerHTML='<option value="">Selecciona un concepto</option>'+concepts().map(value=>'<option value="'+escLocal(value)+'">'+escLocal(value)+'</option>').join('');label.replaceChild(select,input);form.dataset.v32='1';select.addEventListener('change',()=>{if(select.value==='Otro')openOther(select)});
+  }
+  const style=document.createElement('style');style.textContent='.expense-other-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.expense-other-box{width:min(460px,100%);background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.expense-other-box h2{margin:0 0 6px}.expense-other-box p{margin:0 0 14px;color:#667085;font-size:12px}.expense-other-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.expense-other-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.expense-other-cancel{background:#eef2f8;color:#3d4b67}';document.head.appendChild(style);apply();setTimeout(apply,100);setTimeout(apply,500);
+})();
+</script>
+
+<!-- V33-final: elimina tipo y periodicidad del formulario visible de egresos -->
+<script>
+(()=>{
+  const common=['Comida','Cine','Transporte','Viaje','Helados','Pizza','Despensa','Renta','Gasolina','Servicios','Farmacia','Salud','Educación','Nómina','Otro'];
+  const clean=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const values=()=>[...(db.finances||[]).map(x=>String(x.concept||'').trim()),...(db.expenseConcepts||[]),...common].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  function other(select){
+    document.querySelector('#expenseOtherModal')?.remove();
+    const modal=document.createElement('div');modal.id='expenseOtherModal';modal.className='expense-other-modal';modal.innerHTML='<div class="expense-other-box"><h2>Agregar concepto</h2><p>Escribe el gasto que no aparece en la lista.</p><input id="expenseOtherInput" placeholder="Ej. Reparación del auto"><div class="expense-other-actions"><button type="button" class="expense-other-cancel">Cancelar</button><button type="button" class="btn primary expense-other-save">Agregar concepto</button></div></div>';document.body.appendChild(modal);const input=modal.querySelector('#expenseOtherInput');input.focus();const close=()=>modal.remove();modal.querySelector('.expense-other-cancel').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};modal.querySelector('.expense-other-save').onclick=()=>{const value=input.value.trim();if(!value)return;db.expenseConcepts=db.expenseConcepts||[];if(!db.expenseConcepts.includes(value))db.expenseConcepts.push(value);const option=new Option(value,value);select.insertBefore(option,select.querySelector('option[value="Otro"]'));select.value=value;close();if(typeof save==='function')save()};
+  }
+  function apply(form){
+    if(!form)return;
+    form.querySelector('select[name="type"]')?.closest('label')?.remove();
+    form.querySelector('select[name="period"]')?.closest('label')?.remove();
+    const input=form.querySelector('input[name="concept"]');
+    if(input&&!form.querySelector('select[name="concept"]')){const label=input.closest('label'),select=document.createElement('select');select.name='concept';select.required=true;select.innerHTML='<option value="">Selecciona un concepto</option>'+values().map(x=>'<option value="'+clean(x)+'">'+clean(x)+'</option>').join('');label.replaceChild(select,input);select.addEventListener('change',()=>{if(select.value==='Otro')other(select)})}
+    if(form.id==='financeExpenseFormEl'&&!form.querySelector('input[name="type"]')){const hidden=document.createElement('input');hidden.type='hidden';hidden.name='type';hidden.value='gasto-personal';form.appendChild(hidden)}
+  }
+  const style=document.createElement('style');style.textContent='.expense-other-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.expense-other-box{width:min(460px,100%);background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.expense-other-box h2{margin:0 0 6px}.expense-other-box p{margin:0 0 14px;color:#667085;font-size:12px}.expense-other-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.expense-other-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.expense-other-cancel{background:#eef2f8;color:#3d4b67}';document.head.appendChild(style);
+  const run=()=>{apply(document.querySelector('#expenseAccountForm'));apply(document.querySelector('#financeExpenseFormEl'))};run();setTimeout(run,100);setTimeout(run,500);new MutationObserver(run).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
