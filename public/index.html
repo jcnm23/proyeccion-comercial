@@ -115,6 +115,46 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 })();
 </script>
 
+<!-- Cambio solicitado: vincular clientes existentes y limitar el origen de ventas a las dos marcas -->
+<script>
+(()=>{
+  function actualizarFormularioVenta(){
+    const form=document.querySelector('#saleForm');
+    if(!form)return;
+
+    const cliente=form.querySelector('[name="client"]');
+    if(cliente && cliente.tagName!=='SELECT'){
+      const select=document.createElement('select');
+      select.name='client';
+      select.required=cliente.required;
+      select.innerHTML='<option value="">Selecciona un cliente</option>';
+      cliente.replaceWith(select);
+    }
+
+    const clienteSelect=form.querySelector('select[name="client"]');
+    if(clienteSelect){
+      const actual=clienteSelect.value;
+      const opciones='<option value="">Selecciona un cliente</option>'+
+        (db.clients||[]).map(c=>'<option value="'+esc(c.name)+'">'+esc(c.name)+'</option>').join('');
+      if(clienteSelect.innerHTML!==opciones)clienteSelect.innerHTML=opciones;
+      clienteSelect.value=actual;
+    }
+
+    const origen=form.querySelector('select[name="source"]');
+    if(origen){
+      const actual=origen.value;
+      const opciones='<option value="JCN">JCN</option><option value="Concepto Digital">Concepto Digital</option>';
+      if(origen.innerHTML!==opciones)origen.innerHTML=opciones;
+      origen.value=actual==='Concepto Digital'?'Concepto Digital':'JCN';
+    }
+  }
+
+  actualizarFormularioVenta();
+  new MutationObserver(actualizarFormularioVenta).observe(document.body,{childList:true,subtree:true});
+  setTimeout(actualizarFormularioVenta,300);
+})();
+</script>
+
 <!-- Cambio solicitado: mostrar "Plazo" en lugar de "Horizonte" sin modificar los datos internos -->
 <script>
 (()=>{
