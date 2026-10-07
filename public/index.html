@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 34 | Edición y eliminación de clientes -->
+<!-- Proyección Comercial | Versión 35 | Eliminación de ventas desde edición -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -115,6 +115,11 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 })();
 </script>
 
+<!-- V35-final: eliminar ventas desde la ventana de edición -->
+<script>
+(()=>{const style=document.createElement('style');style.textContent='.sale-delete-btn{background:#fff0ef;color:#b33232;border:1px solid #ffd4cf!important}.sale-edit-actions{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}@media(max-width:600px){.sale-edit-actions{grid-template-columns:1fr 1fr}.sale-delete-btn{grid-column:1/-1}}';document.head.appendChild(style)})();
+</script>
+
 <!-- Corrección de ventas: neto cobrado, filtro por estado, colores y edición -->
 <script>
 (()=>{
@@ -159,10 +164,11 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
     if(!item)return;
     document.querySelector('#saleEditModal')?.remove();
     const modal=document.createElement('div');modal.id='saleEditModal';modal.className='sale-edit-modal';
-    modal.innerHTML='<div class="sale-edit-box"><h2>Editar venta</h2><p>Actualiza la fecha, cliente, servicio, monto o estado. El registro no se elimina.</p><form class="sale-edit-form"><label>Fecha<input name="date" type="date" required></label><label>Cliente<select name="client" required>'+clientOptions(item.client)+'</select></label><label>Servicio<select name="service" required>'+serviceOptions(item.service)+'</select></label><label>Monto antes de IVA<input name="amount" type="number" min="0" step="0.01" required></label><label>Estado<select name="status"><option>Cobrada</option><option>Por cobrar</option><option>Parcial</option></select></label><div class="sale-edit-actions"><button type="button" class="sale-edit-cancel">Cancelar</button><button type="submit" class="btn primary">Guardar cambios</button></div></form></div>';
+    modal.innerHTML='<div class="sale-edit-box"><h2>Editar venta</h2><p>Actualiza la fecha, cliente, servicio, monto o estado; también puedes eliminar esta venta.</p><form class="sale-edit-form"><label>Fecha<input name="date" type="date" required></label><label>Cliente<select name="client" required>'+clientOptions(item.client)+'</select></label><label>Servicio<select name="service" required>'+serviceOptions(item.service)+'</select></label><label>Monto antes de IVA<input name="amount" type="number" min="0" step="0.01" required></label><label>Estado<select name="status"><option>Cobrada</option><option>Por cobrar</option><option>Parcial</option></select></label><div class="sale-edit-actions"><button type="button" class="sale-delete-btn">Eliminar venta</button><span></span><button type="button" class="sale-edit-cancel">Cancelar</button><button type="submit" class="btn primary">Guardar cambios</button></div></form></div>';
     document.body.appendChild(modal);
     const form=modal.querySelector('form');form.elements.date.value=item.date||'';form.elements.client.value=item.client||'';form.elements.service.value=item.service||'';form.elements.amount.value=Number(item.amount)||0;form.elements.status.value=item.status||'Cobrada';
     modal.querySelector('.sale-edit-cancel').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};
+    modal.querySelector('.sale-delete-btn').onclick=async()=>{if(!confirm('¿Deseas eliminar esta venta? Esta acción no elimina clientes ni otros registros.'))return;const i=(db.sales||[]).indexOf(item);if(i>=0)db.sales.splice(i,1);modal.remove();await save();toast('Venta eliminada correctamente')};
     form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());Object.assign(item,{date:data.date,client:data.client,service:data.service,amount:data.amount,status:data.status,stage:data.status==='Cotización enviada'?'cotizacion':''});modal.remove();await save();toast('Venta actualizada correctamente')};
   }
 
