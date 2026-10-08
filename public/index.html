@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 35 | Eliminación de ventas desde edición -->
+<!-- Proyección Comercial | Versión 36 | Ventas vinculadas con cuentas y eliminación sincronizada -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -112,6 +112,66 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const form=document.querySelector('#serviceForm');
   if(form)form.addEventListener('submit',function(e){const editingId=form.dataset.editingId;if(!editingId)return;e.preventDefault();const item=db.services.find(x=>String(x.id)===String(editingId));if(item){const data=new FormData(form);item.name=data.get('name');item.price=data.get('price');item.duration=data.get('duration');item.status=data.get('status')}delete form.dataset.editingId;const button=form.querySelector('button');if(button)button.textContent='Agregar servicio';form.reset();save()},true);
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
+})();
+</script>
+
+<!-- V36-final: sincroniza ventas con Control de cuentas y permite eliminarlas sin dejar movimientos huérfanos -->
+<script>
+(()=>{
+  const saleConcept=item=>'Venta: '+(item.client||'Cliente')+' · '+(item.service||'Servicio');
+  const isCollected=item=>String(item?.status||'').toLowerCase()==='cobrada';
+  const getLinkedMoves=item=>{
+    const moves=(db.accountMoves||[]).filter(m=>m.source==='sale'&&String(m.sourceId)===String(item.id));
+    if(moves.length)return moves;
+    const fallback=(db.accountMoves||[]).find(m=>m.kind==='entrada'&&String(m.date||'')===String(item.date||'')&&Number(m.amount)===Number(item.amount)&&String(m.concept||'')===saleConcept(item));
+    return fallback?[fallback]:[];
+  };
+  const removeSaleMoves=item=>{
+    const linked=getLinkedMoves(item);if(!linked.length)return;
+    linked.forEach(move=>{const account=(db.accounts||[]).find(a=>a.name===move.account);if(account&&move.kind==='entrada')account.balance=Number(account.balance||0)-Number(move.amount||0)});
+    db.accountMoves=(db.accountMoves||[]).filter(move=>!linked.includes(move));
+  };
+  const ensureSaleMove=item=>{
+    if(!isCollected(item)||!item.account)return;
+    if(!db.accountMoves)db.accountMoves=[];
+    const linked=getLinkedMoves(item),account=(db.accounts||[]).find(a=>a.name===item.account);
+    if(!account)return;
+    if(linked.length){const move=linked[0];move.account=account.name;move.amount=Number(item.amount)||0;move.date=item.date;move.concept=saleConcept(item);move.source='sale';move.sourceId=item.id;return}
+    account.balance=Number(account.balance||0)+(Number(item.amount)||0);
+    db.accountMoves.push({id:Date.now()+1,account:account.name,kind:'entrada',amount:Number(item.amount)||0,date:item.date,concept:saleConcept(item),source:'sale',sourceId:item.id});
+  };
+  const removeOrphanSaleMoves=async()=>{
+    const active=new Set((db.sales||[]).map(s=>String(s.id))),orphaned=[];
+    db.accountMoves=(db.accountMoves||[]).filter(move=>{
+      const orphan=move.source==='sale'&&move.sourceId!=null&&!active.has(String(move.sourceId));
+      if(orphan)orphaned.push(move);
+      return !orphan;
+    });
+    if(!orphaned.length)return;
+    orphaned.forEach(move=>{const account=(db.accounts||[]).find(a=>a.name===move.account);if(account&&move.kind==='entrada')account.balance=Number(account.balance||0)-Number(move.amount||0)});
+    await save();
+  };
+  function editSale(index){
+    const item=(db.sales||[])[index];if(!item)return;
+    document.querySelector('#saleEditModal')?.remove();
+    const modal=document.createElement('div');modal.id='saleEditModal';modal.className='sale-edit-modal';
+    modal.innerHTML='<div class="sale-edit-box"><h2>Editar venta</h2><p>Actualiza los datos, la cuenta vinculada o elimina esta venta.</p><form class="sale-edit-form"><label>Fecha<input name="date" type="date" required></label><label>Cliente<select name="client" required>'+clientOptions(item.client)+'</select></label><label>Servicio<select name="service" required>'+serviceOptions(item.service)+'</select></label><label>Monto antes de IVA<input name="amount" type="number" min="0" step="0.01" required></label><label>Estado<select name="status"><option>Cobrada</option><option>Por cobrar</option><option>Cotización enviada</option><option>Parcial</option></select></label><label>Cuenta destino<select name="account" id="saleEditAccount"></select></label><div class="sale-edit-actions"><button type="button" class="sale-delete-btn">Eliminar venta</button><span></span><button type="button" class="sale-edit-cancel">Cancelar</button><button type="submit" class="btn primary">Guardar cambios</button></div></form></div>';
+    document.body.appendChild(modal);
+    const form=modal.querySelector('form'),accountSelect=form.elements.account;accountSelect.innerHTML=(db.accounts||[]).length?(db.accounts||[]).map(a=>'<option value="'+esc(a.name)+'">'+esc(a.name)+'</option>').join(''):'<option value="">Sin cuenta disponible</option>';
+    form.elements.date.value=item.date||'';form.elements.client.value=item.client||'';form.elements.service.value=item.service||'';form.elements.amount.value=Number(item.amount)||0;form.elements.status.value=item.status||'Cobrada';form.elements.account.value=item.account||getLinkedMoves(item)[0]?.account||'';
+    const close=()=>modal.remove();modal.querySelector('.sale-edit-cancel').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};
+    modal.querySelector('.sale-delete-btn').onclick=async()=>{if(!confirm('¿Deseas eliminar esta venta? También se quitará su entrada vinculada de Control de cuentas.'))return;removeSaleMoves(item);const i=(db.sales||[]).indexOf(item);if(i>=0)db.sales.splice(i,1);close();await save();toast('Venta y movimiento vinculado eliminados correctamente')};
+    form.onsubmit=async e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries()),wasCollected=isCollected(item);if(wasCollected)removeSaleMoves(item);Object.assign(item,{date:data.date,client:data.client,service:data.service,amount:data.amount,status:data.status,account:data.account,stage:data.status==='Cotización enviada'?'cotizacion':''});if(isCollected(item))ensureSaleMove(item);close();await save();toast('Venta actualizada y cuentas sincronizadas')};
+  }
+  const table=document.querySelector('#salesTable');
+  if(table&&!table.dataset.v36Linked){table.dataset.v36Linked='1';table.addEventListener('click',event=>{const button=event.target.closest('[data-sale-index]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();editSale(Number(button.dataset.saleIndex))},true)}
+  const form=document.querySelector('#saleForm');
+  if(form&&!form.dataset.v36Linked){
+    const clone=form.cloneNode(true);clone.dataset.v36Linked='1';form.replaceWith(clone);
+    clone.addEventListener('submit',async e=>{e.preventDefault();const item=Object.fromEntries(new FormData(clone).entries());item.id=Date.now();if(item.status==='Cotización enviada')item.stage='cotizacion';db.sales.push(item);ensureSaleMove(item);clone.reset();clone.querySelector('[name=date]').value=today();save()});
+  }
+  const style=document.createElement('style');style.textContent='.sale-edit-actions{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}.sale-delete-btn{background:#fff0ef;color:#b33232;border:1px solid #ffd4cf!important}.sale-edit-actions button{white-space:nowrap}@media(max-width:600px){.sale-edit-actions{grid-template-columns:1fr 1fr}.sale-delete-btn{grid-column:1/-1}}';document.head.appendChild(style);
+  const waitForCloud=()=>{if(typeof window.cloudStateReady==='undefined'||window.cloudStateReady===false){setTimeout(waitForCloud,150);return}removeOrphanSaleMoves()};setTimeout(waitForCloud,150);
 })();
 </script>
 
