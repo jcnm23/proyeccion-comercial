@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 38 | Gestor de gastos separado por conceptos y gastos diarios -->
+<!-- Proyección Comercial | Versión 49 | Título con emoji y sin flecha -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -41,7 +41,7 @@ function monthsFor(g){if(g.date){const n=(new Date(g.date)-new Date())/86400000/
 function serviceMix(target){const active=db.services.filter(s=>s.status!=='En pausa'&&Number(s.price)>0);if(!active.length)return '';let best=null,max=Math.ceil(target/Math.min(...active.map(s=>Number(s.price))))+2;for(let a=0;a<=max;a++)for(let b=0;b<=max;b++)for(let c=0;c<=max;c++){const counts=[a,b,c].slice(0,active.length),total=counts.reduce((x,n,i)=>x+n*Number(active[i].price),0);if(total<target)continue;if(active.length>=3&&counts.some(n=>!n))continue;const clients=counts.reduce((x,n)=>x+n,0),score=total-target+clients*.01;if(!best||score<best.score)best={counts,total,score,clients}}if(!best)return '';return `<div class="list-item"><div><b>Mezcla sugerida para ${money(target)} mensuales</b><div class="small">${best.counts.map((n,i)=>`${n} cliente${n===1?'':'s'} de ${esc(active[i].name)}`).join(' · ')}</div></div><span class="tag green">${money(best.total)} · +${money(best.total-target)}</span></div>`}
 function renderGoalPlan(){let box=$('#goalPlan');if(!box){const anchor=$('#dashboard').querySelector('.grid.metrics');anchor.insertAdjacentHTML('afterend','<div class="card goal-plan" style="margin-bottom:17px"><div class="section-title"><div><h2>Cómo alcanzar tus metas</h2><p>Algoritmo de aportación mensual y mezcla sugerida de servicios.</p></div><span class="tag">Planificador</span></div><div id="goalPlan"></div></div>');box=$('#goalPlan')}if(!db.goals.length){box.innerHTML='<div class="notice">Registra metas con fecha límite para calcular cuánto necesitas vender cada mes.</div>';return}const total=sum(db.goals,'amount'),maxMonths=Math.max(...db.goals.map(monthsFor)),globalMonthly=total/maxMonths,deadlineMonthly=db.goals.reduce((x,g)=>x+Number(g.amount)/monthsFor(g),0),target=Math.max(globalMonthly,deadlineMonthly);box.innerHTML=`<div class="kpi"><div><span class="small">Meta acumulada</span><strong>${money(total)}</strong></div><div style="text-align:right"><span class="small">Venta mensual mínima por fechas</span><strong>${money(target)}</strong></div></div><div class="notice" style="margin:12px 0">Algoritmo: cada meta se divide entre sus meses disponibles y después se suman las aportaciones. Como referencia, ${money(total)} ÷ ${maxMonths} meses = ${money(globalMonthly)} al mes; considerando fechas cortas, el mínimo recomendado es ${money(target)}.</div>${serviceMix(target)}<div class="motivation" style="margin-top:12px">${target>sum(db.sales,'amount')?'Cada venta es un paso medible. Enfócate en la mezcla sugerida y celebra el avance semanal.':'¡Excelente ritmo! Mantén la constancia y convierte el excedente en ahorro o reducción de deuda.'}</div>`}
 function renderAccounts(){if(!db.accounts)db.accounts=[];let host=$('#accountPanel');if(!host){$('#finanzas').insertAdjacentHTML('afterbegin','<div id="accountPanel" class="card" style="margin-bottom:16px"><div class="section-title"><div><h2>Control de efectivo y bancos</h2><p>Registra saldos actuales y asigna un nombre a cada banco.</p></div></div><form id="accountForm" class="form grid2"><label>Nombre de cuenta o banco<input name="name" required placeholder="Ej. Efectivo, BBVA, Nu"></label><label>Tipo<select name="type"><option>Efectivo</option><option>Banco</option><option>Tarjeta</option><option>Ahorro</option></select></label><label>Saldo actual<input name="balance" type="number" step="0.01" required></label><div class="form-actions"><button class="btn primary">Guardar saldo</button></div></form><div id="accountsTable" style="margin-top:12px"></div></div>');host=$('#accountPanel');$('#accountForm').addEventListener('submit',e=>{e.preventDefault();const o=Object.fromEntries(new FormData(e.target).entries());o.id=Date.now();db.accounts.push(o);e.target.reset();save()})}$('#accountsTable').innerHTML=table(['Cuenta','Tipo','Saldo'],db.accounts.map(a=>`<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.type)}</td><td>${money(a.balance)}</td></tr>`))}
-function renderReview(){let host=$('#reviewPanel');if(!host){$('#finanzas').insertAdjacentHTML('beforeend','<div id="reviewPanel" class="card" style="margin-top:16px"><div class="section-title"><div><h2>Revisión por rubro y fecha</h2><p>Filtra gastos, créditos, préstamos y ahorro para analizar el periodo.</p></div></div><div class="filter-row"><select id="reviewType"><option value="">Todos los rubros</option><option value="gasto-personal">Gasto personal</option><option value="gasto-comercial">Gasto comercial</option><option value="prestamo">Préstamo</option><option value="credito">Crédito</option><option value="ahorro">Ahorro</option></select><input id="reviewFrom" type="date"><input id="reviewTo" type="date"></div><div id="reviewTable" style="margin-top:12px"></div></div>');['reviewType','reviewFrom','reviewTo'].forEach(id=>$('#'+id).addEventListener('input',renderReview));host=$('#reviewPanel')}const type=$('#reviewType').value,from=$('#reviewFrom').value,to=$('#reviewTo').value,rows=db.finances.filter(f=>(!type||f.type===type)&&(!from||f.date>=from)&&(!to||f.date<=to));$('#reviewTable').innerHTML=table(['Fecha','Rubro','Concepto','Monto'],rows.map(f=>`<tr><td>${esc(f.date||'—')}</td><td>${esc(f.type)}</td><td>${esc(f.concept)}</td><td>${money(f.amount)}</td></tr>`))}
+function renderReview(){let host=$('#reviewPanel');if(!host){$('#finanzas').insertAdjacentHTML('beforeend','<div id="reviewPanel" class="card" style="margin-top:16px"><div class="section-title"><div><h2>Revisión por rubro y fecha</h2><p>Filtra gastos, créditos, préstamos y ahorro para analizar el periodo.</p></div></div><div class="filter-row"><select id="reviewType"><option value="">Todos los rubros</option><option value="gasto-personal">Gasto personal</option><option value="gasto-comercial">Gasto comercial</option><option value="prestamo">Préstamo</option><option value="credito">Crédito</option><option value="ahorro">Ahorro</option></select><input id="reviewFrom" type="date"><input id="reviewTo" type="date"></div><div id="reviewTable" style="margin-top:12px"></div></div>');['reviewType','reviewFrom','reviewTo'].forEach(id=>$('#'+id).addEventListener('input',renderReview));host=$('#reviewPanel')}const type=$('#reviewType').value,from=$('#reviewFrom').value,to=$('#reviewTo').value,scheduled=/^luz$|renta|colegiatura|pr[eé]stamo|cr[eé]dito|proveedor|servicio/i,rows=(db.dailyExpenses||[]).filter(f=>!scheduled.test(String(f.concept||''))).map(f=>({...f,type:'gasto-diario'})).filter(f=>(!type||f.type===type)&&(!from||f.date>=from)&&(!to||f.date<=to));$('#reviewTable').innerHTML=table(['Fecha','Rubro','Concepto','Monto'],rows.map(f=>`<tr><td>${esc(f.date||'—')}</td><td>${esc(f.type)}</td><td>${esc(f.concept)}</td><td>${money(f.amount)}</td></tr>`))}
 const oldRender=render;render=function(){oldRender();renderGoalPlan();renderAccounts();renderReview()};render();
 const targetLabel=$('#mTarget')?.parentElement?.querySelector('.label');if(targetLabel)targetLabel.textContent='Meta general';const financeNav=$$('.nav button').find(b=>b.dataset.section==='finanzas');if(financeNav){financeNav.innerHTML='<span>▣</span>Gestor de gastos';const period=$('#financeForm select[name=period]');if(period)period.innerHTML+='<option>Diario</option><option>Quincenal</option>';const amountLabel=$('#financeForm input[name=amount]')?.parentElement;if(amountLabel&&amountLabel.firstChild)amountLabel.firstChild.textContent='Monto del movimiento';}
 const main=$('.main'),finSec=$('#finanzas');if(main&&finSec&&!$('#cuentas')){const accountSec=document.createElement('section');accountSec.id='cuentas';accountSec.className='section';accountSec.innerHTML='<div class="section-title"><div><h2>Control de efectivo y bancos</h2><p>Sección independiente para saldos de efectivo, bancos, tarjetas y ahorro.</p></div></div>';main.insertBefore(accountSec,finSec);const panel=$('#accountPanel');if(panel)accountSec.append(panel);const accountNav=document.createElement('button');accountNav.dataset.section='cuentas';accountNav.innerHTML='<span>◉</span>Control de cuentas';financeNav.parentNode.insertBefore(accountNav,financeNav.nextSibling);accountNav.onclick=()=>{$$('.nav button').forEach(x=>x.classList.remove('active'));accountNav.classList.add('active');$$('.section').forEach(s=>s.classList.remove('active'));accountSec.classList.add('active');$('#pageTitle').textContent='Control de cuentas';$('#subtitle').textContent='Consulta y actualiza tus saldos disponibles por cuenta.'};}
@@ -114,7 +114,6 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 })();
 </script>
-
 <!-- V36-final: sincroniza ventas con Control de cuentas y permite eliminarlas sin dejar movimientos huérfanos -->
 <script>
 (()=>{
@@ -203,7 +202,70 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 })();
 </script>
 
+<!-- V39-final: submenús laterales y migración de gastos diarios fuera de compromisos -->
+<script>
+(()=>{
+  const dailyPattern=/gasolina|uber|agua ciel|despensa|cine|pizza|helado|transporte|viaje|comida|restaurante|farmacia|caf[eé]/i;
+  const isDaily=item=>dailyPattern.test(String(item?.concept||''));
+  const showArea=area=>{const map={concepts:document.querySelector('#financeForm')?.closest('.card'),calendar:document.querySelector('#financeTable')?.closest('.card'),daily:document.querySelector('#financeExpenseForm')};Object.entries(map).forEach(([key,panel])=>{if(panel)panel.style.display=key===area?'':'none'});document.querySelectorAll('[data-expense-sub]').forEach(button=>button.classList.toggle('active',button.dataset.expenseSub===area));document.querySelector('#expenseAreaTabs')?.querySelectorAll('button').forEach(button=>button.classList.toggle('active',button.dataset.expenseArea===area))};
+  const migrateDaily=async()=>{if(!Array.isArray(db.finances))return;if(!db.dailyExpenses)db.dailyExpenses=[];const moved=[];db.finances=(db.finances||[]).filter(item=>{if(!isDaily(item))return true;if(!db.dailyExpenses.some(existing=>String(existing.sourceFinanceId)===String(item.id))){db.dailyExpenses.push({id:Date.now()+Math.floor(Math.random()*1000),concept:item.concept,amount:Number(item.amount)||0,date:item.date||today(),account:item.account||'',kind:'gasto-diario',sourceFinanceId:item.id})}moved.push(item);return false});if(moved.length)await save()};
+  const renderDailyList=()=>{const panel=document.querySelector('#financeExpenseForm'),form=panel?.querySelector('#financeExpenseFormEl');if(!panel||!form)return;let host=panel.querySelector('#dailyExpenseList');if(!host){host=document.createElement('div');host.id='dailyExpenseList';host.className='daily-expense-list';panel.appendChild(host)}const rows=(db.dailyExpenses||[]).slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));host.innerHTML='<h3>Gastos diarios registrados</h3>'+(rows.length?'<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Cuenta</th><th>Monto</th></tr></thead><tbody>'+rows.map(item=>'<tr><td>'+esc(item.date||'—')+'</td><td>'+esc(item.concept||'—')+'</td><td>'+esc(item.account||'—')+'</td><td>'+money(item.amount)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Aún no hay gastos diarios registrados.</div>')};
+  function setup(){const nav=document.querySelector('.nav'),financeNav=nav?.querySelector('[data-section="finanzas"]');if(!nav||!financeNav)return;let subnav=document.querySelector('#financeSubnav');if(!subnav){subnav=document.createElement('div');subnav.id='financeSubnav';subnav.className='finance-subnav';subnav.innerHTML='<button type="button" data-expense-sub="concepts">Conceptos de pago</button><button type="button" data-expense-sub="calendar">Calendario de pagos</button><button type="button" data-expense-sub="daily">Gastos diarios</button>';financeNav.insertAdjacentElement('afterend',subnav);subnav.querySelectorAll('[data-expense-sub]').forEach(button=>button.onclick=e=>{e.preventDefault();e.stopPropagation();financeNav.click();setTimeout(()=>showArea(button.dataset.expenseSub),0)})}document.querySelector('#expenseAreaTabs')?.setAttribute('hidden','hidden');showArea(document.querySelector('[data-expense-sub].active')?.dataset.expenseSub||'concepts')}
+  const style=document.createElement('style');style.textContent='#expenseAreaTabs{display:none!important}.finance-subnav{display:grid;gap:2px;margin:-7px 0 8px 31px;padding-left:8px;border-left:2px solid #dbe4ff}.finance-subnav button{border:0;background:transparent;color:#53617a;text-align:left;padding:6px 8px;font:inherit;font-size:13px;cursor:pointer;border-radius:7px}.finance-subnav button:hover,.finance-subnav button.active{background:#eef3ff;color:#3157d6;font-weight:800}';document.head.appendChild(style);
+  const dailyStyle=document.createElement('style');dailyStyle.textContent='#dailyExpenseList{margin-top:16px;padding-top:14px;border-top:1px solid #e4e9f2}#dailyExpenseList h3{font-size:14px;margin:0 0 10px}#dailyExpenseList table{width:100%;border-collapse:collapse;font-size:11px}#dailyExpenseList th,#dailyExpenseList td{text-align:left;padding:8px;border-bottom:1px solid #edf0f5}';document.head.appendChild(dailyStyle);
+  document.addEventListener('submit',event=>{if(event.target?.id==='financeExpenseFormEl')setTimeout(renderDailyList,100)});
+  window.addEventListener('load',()=>{setup();setTimeout(setup,300);const wait=()=>{if(typeof window.cloudStateReady==='undefined'||window.cloudStateReady===false){setTimeout(wait,150);return}migrateDaily().then(()=>{renderDailyList();setTimeout(setup,250)})};setTimeout(wait,150)});
+})();
+</script>
+
 <!-- Corrección de ventas: neto cobrado, filtro por estado, colores y edición -->
+<!-- V41-final: vistas independientes del gestor de gastos -->
+<script>
+(()=>{
+  const panel=(selector)=>document.querySelector(selector)?.closest('.card')||document.querySelector(selector);
+  const setVisible=(element,visible)=>{if(element)element.style.display=visible?'':'none'};
+  const showView=(view)=>{
+    const concept=panel('#financeForm'),calendar=panel('#financeTable'),daily=document.querySelector('#financeExpenseForm');
+    const leak=document.querySelector('#financeExpenseDashboard'),goals=document.querySelector('#expenseGoalsDashboard'),review=document.querySelector('#reviewPanel');
+    setVisible(concept,view==='concepts');
+    setVisible(calendar,view==='calendar');
+    setVisible(daily,view==='daily'||view==='main');
+    setVisible(leak,view==='main'||view==='daily');
+    setVisible(goals,view==='main');
+    setVisible(review,view==='main'||view==='daily');
+    if(view==='main')setVisible(daily,false);
+    document.querySelectorAll('[data-expense-sub]').forEach(button=>button.classList.toggle('active',button.dataset.expenseSub===view));
+    document.querySelector('#expenseAreaTabs')?.setAttribute('hidden','hidden');
+  };
+  const setup=()=>{
+    const financeNav=document.querySelector('.nav button[data-section="finanzas"]');
+    const subnav=document.querySelector('#financeSubnav');
+    if(!financeNav||!subnav)return;
+    let arrow=financeNav.querySelector('.finance-toggle-arrow');
+    if(!arrow){
+      arrow=document.createElement('span');arrow.className='finance-toggle-arrow';arrow.textContent='⌄';arrow.setAttribute('role','button');arrow.setAttribute('tabindex','0');arrow.setAttribute('aria-label','Ocultar submenús');arrow.setAttribute('aria-expanded','true');financeNav.appendChild(arrow);
+      const toggle=(event)=>{event.preventDefault();event.stopPropagation();const collapsed=subnav.classList.toggle('collapsed');arrow.textContent=collapsed?'›':'⌄';arrow.setAttribute('aria-expanded',String(!collapsed));arrow.setAttribute('aria-label',collapsed?'Mostrar submenús':'Ocultar submenús')};
+      arrow.addEventListener('click',toggle);arrow.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){toggle(event)}});
+    }
+    if(!financeNav.dataset.v41Main){
+      financeNav.dataset.v41Main='1';
+      financeNav.addEventListener('click',()=>setTimeout(()=>showView('main'),0));
+      financeNav.addEventListener('click',()=>setTimeout(()=>{const title=document.querySelector('#pageTitle');if(title)title.textContent='💸 Gestor de gastos'},0));
+    }
+    subnav.querySelectorAll('[data-expense-sub]').forEach(button=>{
+      if(button.dataset.v41Bound)return;
+      button.dataset.v41Bound='1';
+      button.addEventListener('click',event=>{event.preventDefault();event.stopImmediatePropagation();financeNav.click();setTimeout(()=>showView(button.dataset.expenseSub),20)},true);
+    });
+    if(!document.querySelector('.v41-gestor-style')){
+      const style=document.createElement('style');style.className='v41-gestor-style';style.textContent='.finance-toggle-arrow{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;font-size:22px;line-height:1;border-radius:7px;color:#3157d6;cursor:pointer}.finance-toggle-arrow:hover{background:#eef3ff}.finance-subnav.collapsed{display:none!important}#expenseAreaTabs{display:none!important}';document.head.appendChild(style);
+    }
+    showView('main');
+  };
+  window.addEventListener('load',()=>{setup();setTimeout(setup,250);setTimeout(setup,700)});
+})();
+</script>
+
 <script>
 (()=>{
   const normalize=value=>String(value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -375,7 +437,8 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
   const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
   const getRows=()=>{
     const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';
-    return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));
+    const scheduled=/^luz$|renta|colegiatura|pr[eé]stamo|cr[eé]dito|proveedor|servicio/i;
+    return (db.dailyExpenses||[]).map(f=>({...f,type:'gasto-diario'})).filter(f=>!scheduled.test(String(f.concept||''))).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));
   };
   const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
   function render(){
@@ -386,10 +449,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
     host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));
     host.dataset.reviewSignature=key;
   }
-  let queued=false;
-  const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};
-  const bodyObserver=new MutationObserver(schedule);
-  bodyObserver.observe(document.body,{childList:true,subtree:true});
+  const schedule=()=>setTimeout(render,0);
   document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
   document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});
   render();
@@ -749,7 +809,7 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
       host.dataset.reviewReady='1';
     }
     const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';
-    const rows=(db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||f.date>=from)&&(!to||f.date<=to));
+    const rows=(db.dailyExpenses||[]).map(f=>({...f,type:'gasto-diario'})).filter(f=>(!type||f.type===type)&&(!from||f.date>=from)&&(!to||f.date<=to));
     const tableHost=document.querySelector('#reviewTable');if(tableHost)tableHost.innerHTML=table(['Fecha','Rubro','Concepto','Monto'],rows.map(f=>`<tr><td>${esc(f.date||'—')}</td><td>${esc(f.type)}</td><td>${esc(f.concept)}</td><td>${money(f.amount)}</td></tr>`));
   }
   window.renderReview=renderReviewV4;
@@ -913,7 +973,7 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 (function(){
   const oldReview=window.renderReview;
   function dateDMY(value){const parts=String(value||'').split('-');return parts.length===3?parts[2]+'/'+parts[1]+'/'+parts[0]:(value||'—')}
-  function renderSortedReview(){const host=document.querySelector('#reviewTable');if(!host)return;const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'',rows=(db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(dateDMY(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'))}
+  function renderSortedReview(){const host=document.querySelector('#reviewTable');if(!host)return;const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'',rows=(db.dailyExpenses||[]).map(f=>({...f,type:'gasto-diario'})).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'));host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(dateDMY(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'))}
   window.renderReview=function(){if(typeof oldReview==='function')oldReview.apply(this,arguments);renderSortedReview()};
   document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
   document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(renderSortedReview,0)});
@@ -925,10 +985,10 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
 <script>
 (()=>{
   const formatDate=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
-  const getRows=()=>{const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'';return (db.finances||[]).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'))};
+  const getRows=()=>{const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'',scheduled=/^luz$|renta|colegiatura|pr[eé]stamo|cr[eé]dito|proveedor|servicio/i;return (db.dailyExpenses||[]).map(f=>({...f,type:'gasto-diario'})).filter(f=>!scheduled.test(String(f.concept||''))).filter(f=>(!type||f.type===type)&&(!from||String(f.date||'')>=from)&&(!to||String(f.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.concept||'').localeCompare(String(b.concept||''),'es'))};
   const signature=rows=>rows.map(f=>[f.date,f.concept,f.type,f.amount].join('|')).join('~');
   function render(){const host=document.querySelector('#reviewTable');if(!host)return;const rows=getRows(),key=signature(rows),heads=[...host.querySelectorAll('thead th')].map(x=>x.textContent.trim()).join('|'),first=host.querySelector('tbody tr td')?.textContent.trim()||'';if(host.dataset.reviewSignature===key&&heads==='Fecha|Concepto|Rubro|Monto'&&(!rows.length||first===formatDate(rows[0].date)))return;host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],rows.map(f=>'<tr><td>'+esc(formatDate(f.date))+'</td><td>'+esc(f.concept||'—')+'</td><td>'+esc(f.type||'—')+'</td><td>'+money(f.amount)+'</td></tr>'));host.dataset.reviewSignature=key}
-  let queued=false;const schedule=()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;render()},0)};new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true});document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});render();setTimeout(render,100);
+  const schedule=()=>setTimeout(render,0);document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))schedule()});render();setTimeout(render,100);
 })();
 </script>
 
@@ -1050,5 +1110,16 @@ setTimeout(()=>{if(typeof window.render==='function')window.render()},0);
   }
   const style=document.createElement('style');style.textContent='.client-edit-btn{border:1px solid #cbd6eb;background:#fff;color:#3157d6;border-radius:7px;padding:5px 9px;font-size:11px;font-weight:800;cursor:pointer}.client-edit-btn:hover{background:#eef3ff}.client-edit-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:rgba(20,35,70,.42);padding:16px}.client-edit-box{width:min(560px,100%);background:#fff;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(20,35,70,.25)}.client-edit-box h2{margin:0 0 6px}.client-edit-box p{margin:0 0 16px;color:#667085;font-size:12px}.client-edit-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.client-edit-form label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#53617a}.client-edit-form input{min-height:38px;border:1px solid #d8dfec;border-radius:9px;padding:8px;background:#fff}.client-edit-actions{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;margin-top:6px}.client-edit-actions button{border:0;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.client-delete-btn{background:#fff0ef;color:#b33232;border:1px solid #ffd4cf!important}.client-cancel-btn{background:#eef2f8;color:#3d4b67}@media(max-width:600px){.client-edit-form{grid-template-columns:1fr}.client-edit-actions{grid-template-columns:1fr 1fr}.client-delete-btn{grid-column:1/-1}}';document.head.appendChild(style);
   const previous=window.renderTables;if(typeof previous==='function')window.renderTables=function(){previous.apply(this,arguments);renderClients()};renderClients();
+})();
+</script>
+<!-- V49-final -->
+<script>
+(()=>{
+  const dateDMY=value=>{const p=String(value||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:(value||'—')};
+  const restorePaymentConcepts=async()=>{if(!Array.isArray(db.dailyExpenses))return;const paymentName=/^luz$|renta|colegiatura|pr[eé]stamo|cr[eé]dito|proveedor|servicio/i;const candidates=db.dailyExpenses.filter(item=>paymentName.test(String(item.concept||'')));if(!candidates.length)return;db.finances=Array.isArray(db.finances)?db.finances:[];candidates.forEach(item=>{const id=item.sourceFinanceId||Date.now()+Math.floor(Math.random()*100000);if(!db.finances.some(existing=>String(existing.id)===String(id))){db.finances.push({id,concept:item.concept,amount:item.amount,date:item.date,type:'gasto-personal',period:'Mensual',priority:'3',planned:true,paymentConcept:true})}});db.dailyExpenses=db.dailyExpenses.filter(item=>!candidates.includes(item));if(typeof save==='function')await save()};
+  const markConceptForm=()=>{const form=document.querySelector('#financeForm');if(form&&!form.querySelector('input[name="paymentConcept"]')){const input=document.createElement('input');input.type='hidden';input.name='paymentConcept';input.value='true';form.appendChild(input)}};
+  const rows=()=>{const type=document.querySelector('#reviewType')?.value||'',from=document.querySelector('#reviewFrom')?.value||'',to=document.querySelector('#reviewTo')?.value||'',scheduled=/^luz$|renta|colegiatura|pr[eé]stamo|cr[eé]dito|proveedor|servicio/i;return (db.dailyExpenses||[]).map(item=>({date:item.date,concept:item.concept,amount:item.amount,type:'gasto-diario'})).filter(item=>!scheduled.test(String(item.concept||''))).filter(item=>(!type||item.type===type)&&(!from||String(item.date||'')>=from)&&(!to||String(item.date||'')<=to)).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')))};
+  const refresh=()=>{const host=document.querySelector('#reviewTable');if(host){const list=rows();host.innerHTML=table(['Fecha','Concepto','Rubro','Monto'],list.map(item=>'<tr><td>'+esc(dateDMY(item.date))+'</td><td>'+esc(item.concept||'—')+'</td><td>'+esc(item.type)+'</td><td>'+money(item.amount)+'</td></tr>'))}};
+  window.renderReview=refresh;document.addEventListener('input',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(refresh,0)});document.addEventListener('change',e=>{if(e.target.matches('#reviewType,#reviewFrom,#reviewTo'))setTimeout(refresh,0)});window.addEventListener('load',async()=>{markConceptForm();await restorePaymentConcepts();setTimeout(markConceptForm,250);setTimeout(refresh,200);setTimeout(refresh,700)});
 })();
 </script>
