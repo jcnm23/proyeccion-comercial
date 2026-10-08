@@ -1,4 +1,4 @@
-<!-- Proyección Comercial | Versión 37 | Resumen ejecutivo con ventas cobradas -->
+<!-- Proyección Comercial | Versión 38 | Gestor de gastos separado por conceptos y gastos diarios -->
 <!doctype html>
 <html lang="es">
 <head>
@@ -178,6 +178,29 @@ const renderInteractiveBase=renderInteractiveDashboard;renderInteractiveDashboar
 <!-- V35-final: eliminar ventas desde la ventana de edición -->
 <script>
 (()=>{const style=document.createElement('style');style.textContent='.sale-delete-btn{background:#fff0ef;color:#b33232;border:1px solid #ffd4cf!important}.sale-edit-actions{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px}@media(max-width:600px){.sale-edit-actions{grid-template-columns:1fr 1fr}.sale-delete-btn{grid-column:1/-1}}';document.head.appendChild(style)})();
+</script>
+
+<!-- V38-final: separa conceptos de pago, calendario y gastos diarios -->
+<script>
+(()=>{
+  const common=['Cine','Gasolina','Pizza','Helados','Transporte','Viaje','Comida','Despensa','Restaurante','Farmacia','Renta','Otro'];
+  const moneyValue=value=>Number(value)||0;
+  function panelFor(selector){return document.querySelector(selector)?.closest('.card')||null}
+  function setup(){
+    const section=document.querySelector('#finanzas');if(!section)return;
+    const conceptForm=document.querySelector('#financeForm'),conceptPanel=panelFor('#financeForm'),calendarPanel=panelFor('#financeTable'),dailyPanel=document.querySelector('#financeExpenseForm');
+    if(conceptForm&&conceptPanel){const title=conceptPanel.querySelector('h2'),desc=conceptPanel.querySelector('.section-title p'),type=conceptForm.querySelector('[name=type]'),button=conceptForm.querySelector('button[type=submit]');if(title)title.textContent='Conceptos de pago';if(desc)desc.textContent='Registra préstamos, créditos y proveedores de servicio que debes cubrir.';if(button)button.textContent='Guardar concepto de pago';if(type)type.innerHTML='<option value="prestamo">Préstamo</option><option value="credito">Crédito</option><option value="proveedor-servicio">Proveedor de servicio</option>'}
+    if(calendarPanel){const title=calendarPanel.querySelector('h2'),desc=calendarPanel.querySelector('.section-title p');if(title)title.textContent='Calendario de pagos · Conceptos de pago';if(desc)desc.textContent='Solo muestra los conceptos de pago que registraste para cubrir durante el mes.'}
+    if(!document.querySelector('#expenseAreaTabs')){const tabs=document.createElement('div');tabs.id='expenseAreaTabs';tabs.className='expense-area-tabs';tabs.innerHTML='<button type="button" data-expense-area="concepts">Conceptos de pago</button><button type="button" data-expense-area="calendar">Calendario de pagos</button><button type="button" data-expense-area="daily">Gastos diarios</button>';section.insertBefore(tabs,section.firstElementChild);tabs.querySelectorAll('button').forEach(button=>button.onclick=()=>showArea(button.dataset.expenseArea));}
+    if(dailyPanel){const title=dailyPanel.querySelector('h2'),desc=dailyPanel.querySelector('.section-title p');if(title)title.textContent='Gastos diarios';if(desc)desc.textContent='Registra salidas cotidianas y pagos realizados a tus conceptos de pago.';setupDailyForm(dailyPanel)}
+    if(!section.dataset.areaReady){section.dataset.areaReady='1';showArea('concepts')}
+  }
+  function showArea(area){const section=document.querySelector('#finanzas');if(!section)return;const concept=panelFor('#financeForm'),calendar=panelFor('#financeTable'),daily=document.querySelector('#financeExpenseForm'),panels={concepts:concept,calendar:calendar,daily};Object.entries(panels).forEach(([key,panel])=>{if(panel)panel.style.display=key===area?'':'none'});document.querySelectorAll('#expenseAreaTabs button').forEach(button=>button.classList.toggle('active',button.dataset.expenseArea===area));}
+  function setupDailyForm(panel){const old=panel.querySelector('#financeExpenseFormEl');if(!old||old.dataset.v38Daily)return;const form=document.createElement('form');form.id='financeExpenseFormEl';form.className='form grid2';form.dataset.v38Daily='1';form.innerHTML='<label>Cuenta origen<select name="account" id="financeExpenseAccount"></select></label><label>Monto de salida<input name="amount" type="number" min="0.01" step="0.01" required></label><label>Fecha de salida<input name="date" type="date" value="'+today()+'" required></label><label style="grid-column:1/-1">Concepto del gasto diario<select name="concept" id="dailyExpenseConcept" required></select></label><div class="form-actions" style="grid-column:1/-1"><button class="btn primary">Registrar gasto diario</button></div>';old.replaceWith(form);form.addEventListener('submit',e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries()),account=(db.accounts||[]).find(item=>item.name===data.account),amount=moneyValue(data.amount);if(!account)return toast('Selecciona una cuenta');if(moneyValue(account.balance)<amount)return toast('Saldo insuficiente para registrar el gasto');let concept=data.concept;if(concept==='Otro'){concept=prompt('Escribe el concepto del gasto diario:','');if(!concept?.trim())return;concept=concept.trim()}const commitment=(db.finances||[]).find(item=>String(item.concept||'').trim().toLowerCase()===concept.toLowerCase()),id=Date.now();if(!db.dailyExpenses)db.dailyExpenses=[];db.dailyExpenses.push({id,concept,amount:amount,date:data.date,account:data.account,kind:commitment?'pago-concepto':'gasto-diario',sourceFinanceId:commitment?.id||null});account.balance-=amount;if(!db.accountMoves)db.accountMoves=[];db.accountMoves.push({id:id+1,account:account.name,kind:'salida',amount,date:data.date,concept,source:'daily-expense',sourceId:id,sourceFinanceId:commitment?.id||null});form.reset();form.querySelector('[name=date]').value=today();fillDailyOptions();save();toast(commitment?'Pago registrado en Gastos diarios':'Gasto diario registrado')});fillDailyOptions()}
+  function fillDailyOptions(){const select=document.querySelector('#dailyExpenseConcept');if(!select)return;const commitments=(db.finances||[]).map(item=>String(item.concept||'').trim()).filter(Boolean);const values=[...commitments,...common].filter((value,index,list)=>value&&list.indexOf(value)===index);select.innerHTML='<option value="">Selecciona un concepto</option>'+values.map(value=>'<option value="'+esc(value)+'">'+esc(value)+'</option>').join('')}
+  const style=document.createElement('style');style.textContent='.expense-area-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}.expense-area-tabs button{border:1px solid #cbd6eb;background:#fff;color:#3157d6;border-radius:9px;padding:10px 14px;font-weight:800;cursor:pointer}.expense-area-tabs button.active{background:#3157d6;color:#fff}.expense-area-tabs+ .grid.two{margin-top:0}';document.head.appendChild(style);
+  window.addEventListener('load',()=>{setup();setTimeout(setup,250);setTimeout(fillDailyOptions,500)});
+})();
 </script>
 
 <!-- Corrección de ventas: neto cobrado, filtro por estado, colores y edición -->
